@@ -50,10 +50,16 @@ export interface PrettierMaxOptions {
   formatOnBuild?: boolean;
 
   /**
-   * Fail the build if there are formatting errors
+   * Fail the build if there are errors (formatting or TypeScript validation)
    * @default false
    */
-  failOnFormatError?: boolean;
+  failOnError?: boolean;
+
+  /**
+   * Run TypeScript validation after formatting
+   * @default true
+   */
+  typescript?: boolean;
 }
 
 /**

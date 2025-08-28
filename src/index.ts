@@ -8,9 +8,10 @@ import type { PrettierMaxOptions, ErrorReporter } from './types.js';
 import type { Ignore } from 'ignore';
 import { ConsoleReporter } from './reporters/console.js';
 import {
-  runPrettierFormat,
   runPrettierFormatProject,
   getPrettierVersion,
+  getTypeScriptVersion,
+  runTypeScriptCheck,
 } from './checker.js';
 import {
   createTargetsFilter,
@@ -27,7 +28,8 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
     configPath = undefined,
     reporter: customReporter = undefined,
     formatOnBuild = true,
-    failOnFormatError = false,
+    failOnError = false,
+    typescript = true,
   } = options;
 
   let reporter: ErrorReporter;
@@ -70,6 +72,21 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
       } else {
         logger.info(`[prettier-max] Detected prettier: ${prettierVersion}`);
         logger.info('[prettier-max] Automatic formatting enabled on build');
+      }
+
+      // Check if TypeScript is available when validation is enabled
+      if (typescript) {
+        const typeScriptVersion = await getTypeScriptVersion();
+        if (!typeScriptVersion) {
+          logger.warn(
+            '[prettier-max] \x1b[33m⚠\x1b[0m TypeScript is not available. TypeScript validation will be skipped.'
+          );
+        } else {
+          logger.info(
+            `[prettier-max] Detected TypeScript: ${typeScriptVersion}`
+          );
+          logger.info('[prettier-max] TypeScript validation enabled on build');
+        }
       }
     },
 
@@ -166,7 +183,7 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
             `[prettier-max] \x1b[31m✗\x1b[0m Failed to format ${result.errors.length} file${result.errors.length === 1 ? '' : 's'}`
           );
 
-          if (failOnFormatError) {
+          if (failOnError) {
             // Throw error to stop the build
             throw new Error(
               `Prettier formatting failed: ${result.errors.length} file${result.errors.length === 1 ? '' : 's'} could not be formatted.`
@@ -194,6 +211,53 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
         logger.info(
           `[prettier-max] \x1b[90mFormatting completed in ${result.duration}ms\x1b[0m`
         );
+
+        // Run TypeScript validation if enabled and formatting was successful
+        if (typescript && result.errors.length === 0) {
+          const tsVersion = await getTypeScriptVersion();
+          if (tsVersion) {
+            logger.info('[prettier-max] Running TypeScript validation...');
+            const tsResult = await runTypeScriptCheck(rootDir);
+
+            if (tsResult.errors.length > 0) {
+              logger.error(
+                `[prettier-max] \x1b[31m✗\x1b[0m TypeScript validation failed: ${tsResult.errors.length} error${tsResult.errors.length === 1 ? '' : 's'}`
+              );
+
+              // Log each error
+              for (const error of tsResult.errors) {
+                const relativePath = error.file.replace(rootDir + '/', '');
+                if (error.line && error.column) {
+                  logger.error(
+                    `[prettier-max]   \x1b[31m${relativePath}:${error.line}:${error.column}\x1b[0m - ${error.message}`
+                  );
+                } else {
+                  logger.error(
+                    `[prettier-max]   \x1b[31m${relativePath}\x1b[0m - ${error.message}`
+                  );
+                }
+              }
+
+              if (failOnError) {
+                throw new Error(
+                  `TypeScript validation failed: ${tsResult.errors.length} error${tsResult.errors.length === 1 ? '' : 's'} found.`
+                );
+              } else {
+                logger.warn(
+                  '[prettier-max] \x1b[33m⚠\x1b[0m Build continuing despite TypeScript errors'
+                );
+              }
+            } else {
+              logger.info(
+                '[prettier-max] \x1b[32m✓\x1b[0m TypeScript validation passed'
+              );
+            }
+
+            logger.info(
+              `[prettier-max] \x1b[90mTypeScript validation completed in ${tsResult.duration}ms\x1b[0m`
+            );
+          }
+        }
       } catch (error) {
         if (
           error instanceof Error &&
@@ -202,9 +266,9 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
           // Re-throw our own error
           throw error;
         }
-        // Log other errors but don't fail the build unless failOnFormatError is true
+        // Log other errors but don't fail the build unless failOnError is true
         logger.error('[prettier-max] Error running prettier format:', error);
-        if (failOnFormatError) {
+        if (failOnError) {
           throw error;
         }
       } finally {
