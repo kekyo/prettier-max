@@ -1,5 +1,6 @@
 {
   "name": "prettier-max",
+  "version": "0.0.1",
   "description": "A simple prettier Vite plugin",
   "keywords": [
     "prettier",
@@ -25,7 +26,7 @@
   },
   "files": [
     "dist",
-    "README_pack.md"
+    "images/prettier-max-120.png"
   ],
   "scripts": {
     "build": "vite build",
