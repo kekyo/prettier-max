@@ -3,29 +3,11 @@ import { createTestDirectory } from './test-utils.js';
 import prettierMax from '../src/index.js';
 import type { PrettierMaxOptions } from '../src/index.js';
 import { ConsoleReporter } from '../src/reporters/console.js';
-import { createTargetsFilter, createIgnoreFilter } from '../src/utils.js';
-import { runPrettierFormat, runPrettierFormatProject } from '../src/checker.js';
+import { runPrettierFormatProject } from '../src/checker.js';
 import * as fs from 'fs-extra';
 import * as path from 'node:path';
 
 describe('prettier-max plugin', () => {
-  describe('utils', () => {
-    it('should match gitignore patterns correctly with targets filter', () => {
-      const rootDir = '/project';
-      const filter = createTargetsFilter([
-        'src/**/*.js',
-        '*.ts',
-        '!**/*.test.js',
-      ]);
-
-      // Test pattern matching using the Ignore instance
-      expect(filter.ignores('src/index.js')).toBe(false);
-      expect(filter.ignores('test.ts')).toBe(false);
-      expect(filter.ignores('src/index.test.js')).toBe(true);
-      expect(filter.ignores('src/styles.css')).toBe(true);
-    });
-  });
-
   describe('ConsoleReporter', () => {
     let consoleLogSpy: any;
     let reporter: ConsoleReporter;
@@ -85,8 +67,8 @@ describe('prettier-max plugin', () => {
       const filePath = path.join(testDir, 'unformatted.js');
       await fs.writeFile(filePath, unformattedContent);
 
-      // Run prettier format
-      const result = await runPrettierFormat([filePath], testDir);
+      // Run prettier format on project
+      const result = await runPrettierFormatProject(testDir, undefined);
 
       expect(result.success).toBe(true);
       expect(result.formattedFiles.length).toBeGreaterThan(0);
@@ -106,8 +88,8 @@ const baz = 'qux';
       const filePath = path.join(testDir, 'formatted.js');
       await fs.writeFile(filePath, formattedContent);
 
-      // Run prettier format
-      const result = await runPrettierFormat([filePath], testDir);
+      // Run prettier format on project
+      const result = await runPrettierFormatProject(testDir, undefined);
 
       expect(result.success).toBe(true);
       expect(result.formattedFiles.length).toBe(0); // No files were modified
@@ -125,14 +107,12 @@ const baz = 'qux';
       expect(plugin.name).toBe('prettier-max');
       expect(plugin.configResolved).toBeDefined();
       expect(plugin.configureServer).toBeDefined();
-      expect(plugin.handleHotUpdate).toBeDefined();
       expect(plugin.buildStart).toBeDefined();
     });
 
     it('should accept custom options', () => {
       const customReporter = new ConsoleReporter();
       const options: PrettierMaxOptions = {
-        targets: ['src/**/*.js', '*.ts'],
         configPath: '.prettierrc',
         reporter: customReporter,
         formatOnBuild: true,
@@ -162,7 +142,7 @@ const baz = 'qux';
       await fs.writeFile(unformattedPath, `const  foo   =    "bar"  ;`);
 
       // Run project format
-      const result = await runPrettierFormatProject(testDir, undefined, null);
+      const result = await runPrettierFormatProject(testDir, undefined);
 
       expect(result.success).toBe(true);
       expect(result.formattedFiles.length).toBeGreaterThan(0);

@@ -5,7 +5,6 @@
 
 import type { Logger, Plugin } from 'vite';
 import type { PrettierMaxOptions, ErrorReporter } from './types.js';
-import type { Ignore } from 'ignore';
 import { ConsoleReporter } from './reporters/console.js';
 import {
   runPrettierFormatProject,
@@ -13,34 +12,23 @@ import {
   getTypeScriptVersion,
   runTypeScriptCheck,
 } from './checker.js';
-import {
-  createTargetsFilter,
-  createIgnoreFilter,
-  normalizeTargets,
-} from './utils.js';
 
 /**
  * Prettier automatic formatting plugin for Vite
  */
 const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
   const {
-    targets = undefined,
     configPath = undefined,
     reporter: customReporter = undefined,
     formatOnBuild = true,
-    failOnError = false,
+    failOnError = true,
     typescript = true,
   } = options;
 
   let reporter: ErrorReporter;
   let rootDir: string;
-  let logger: Logger = undefined;
+  let logger: Logger | undefined = undefined;
   let isFormatting = false;
-  const recentlyFormattedFiles = new Map<string, number>();
-
-  // Filter for file matching
-  let fileFilter: Ignore | null = null;
-  let useTargets = false;
 
   return {
     name: 'prettier-max',
@@ -51,41 +39,29 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
       logger = config.customLogger ?? config.logger;
       reporter = customReporter ?? new ConsoleReporter(rootDir);
 
-      const normalizedTargets = normalizeTargets(targets);
-
-      if (normalizedTargets) {
-        // Use custom targets (ignore .prettierignore)
-        fileFilter = createTargetsFilter(normalizedTargets);
-        useTargets = true;
-      } else {
-        // Use .prettierignore and .gitignore
-        fileFilter = await createIgnoreFilter(rootDir);
-        useTargets = false;
-      }
-
       // Check if prettier is available
       const prettierVersion = await getPrettierVersion();
       if (!prettierVersion) {
-        logger.error(
+        logger?.error(
           '[prettier-max] \x1b[31m✗\x1b[0m Prettier is not available. Please install prettier as a dependency.'
         );
       } else {
-        logger.info(`[prettier-max] Detected prettier: ${prettierVersion}`);
-        logger.info('[prettier-max] Automatic formatting enabled on build');
+        logger?.info(`[prettier-max] Detected prettier: ${prettierVersion}`);
+        logger?.info('[prettier-max] Automatic formatting enabled on build');
       }
 
       // Check if TypeScript is available when validation is enabled
       if (typescript) {
         const typeScriptVersion = await getTypeScriptVersion();
         if (!typeScriptVersion) {
-          logger.warn(
+          logger?.warn(
             '[prettier-max] \x1b[33m⚠\x1b[0m TypeScript is not available. TypeScript validation will be skipped.'
           );
         } else {
-          logger.info(
+          logger?.info(
             `[prettier-max] Detected TypeScript: ${typeScriptVersion}`
           );
-          logger.info('[prettier-max] TypeScript validation enabled on build');
+          logger?.info('[prettier-max] TypeScript validation enabled on build');
         }
       }
     },
@@ -95,37 +71,18 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
       logger = devServer.config.logger;
 
       // Log plugin activation
-      logger.info('[prettier-max] Automatic formatting plugin loaded');
+      logger?.info('[prettier-max] Automatic formatting plugin loaded');
       if (formatOnBuild) {
-        logger.info(
+        logger?.info(
           `[prettier-max] \x1b[90m  Will format files on build start\x1b[0m`
         );
       }
-      if (useTargets) {
-        logger.info(
-          `[prettier-max] \x1b[90m  Using custom targets (gitignore syntax)\x1b[0m`
-        );
-      } else {
-        logger.info(
-          `[prettier-max] \x1b[90m  Using .prettierignore patterns\x1b[0m`
-        );
-      }
+      logger?.info(
+        `[prettier-max] \x1b[90m  Using .prettierignore patterns\x1b[0m`
+      );
       if (configPath) {
-        logger.info(`[prettier-max] \x1b[90m  Config: ${configPath}\x1b[0m`);
+        logger?.info(`[prettier-max] \x1b[90m  Config: ${configPath}\x1b[0m`);
       }
-    },
-
-    handleHotUpdate: ({ file }) => {
-      // Check if this file was recently formatted to prevent infinite loops
-      const formattedTime = recentlyFormattedFiles.get(file);
-      if (formattedTime && Date.now() - formattedTime < 5000) {
-        // Ignore files that were formatted in the last 5 seconds
-        recentlyFormattedFiles.delete(file);
-        return [];
-      }
-
-      // Let Vite continue with HMR
-      return;
     },
 
     buildStart: async () => {
@@ -136,50 +93,30 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
 
       // Prevent concurrent formatting
       if (isFormatting) {
-        logger.info(
+        logger?.info(
           '[prettier-max] Formatting already in progress, skipping...'
         );
         return;
       }
 
       isFormatting = true;
-      logger.info('[prettier-max] Formatting files before build...');
+      logger?.info('[prettier-max] Formatting files before build...');
 
       // Set build mode and logger for console reporter
-      if (reporter instanceof ConsoleReporter) {
+      if (reporter instanceof ConsoleReporter && logger) {
         reporter.setBuildMode(true);
         reporter.setLogger(logger);
       }
 
       try {
         // Run prettier format on the entire project
-        const result = await runPrettierFormatProject(
-          rootDir,
-          configPath,
-          fileFilter
-        );
-
-        // Track formatted files to prevent infinite loops
-        const now = Date.now();
-        for (const file of result.formattedFiles) {
-          recentlyFormattedFiles.set(file, now);
-        }
-
-        // Clean up old entries after 10 seconds
-        setTimeout(() => {
-          const cutoff = Date.now() - 10000;
-          for (const [file, time] of recentlyFormattedFiles.entries()) {
-            if (time < cutoff) {
-              recentlyFormattedFiles.delete(file);
-            }
-          }
-        }, 10000);
+        const result = await runPrettierFormatProject(rootDir, configPath);
 
         if (result.errors.length > 0) {
           // Report errors using the configured reporter
           reporter.report(result.errors);
 
-          logger.error(
+          logger?.error(
             `[prettier-max] \x1b[31m✗\x1b[0m Failed to format ${result.errors.length} file${result.errors.length === 1 ? '' : 's'}`
           );
 
@@ -189,26 +126,26 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
               `Prettier formatting failed: ${result.errors.length} file${result.errors.length === 1 ? '' : 's'} could not be formatted.`
             );
           } else {
-            logger.warn(
+            logger?.warn(
               '[prettier-max] \x1b[33m⚠\x1b[0m Build continuing despite formatting errors'
             );
           }
         } else if (result.formattedFiles.length > 0) {
-          logger.info(
+          logger?.info(
             `[prettier-max] \x1b[32m✓\x1b[0m Formatted ${result.formattedFiles.length} file${result.formattedFiles.length === 1 ? '' : 's'}`
           );
           // Log the formatted files
           for (const file of result.formattedFiles) {
             const relativePath = file.replace(rootDir + '/', '');
-            logger.info(`[prettier-max]   \x1b[90m${relativePath}\x1b[0m`);
+            logger?.info(`[prettier-max]   \x1b[90m${relativePath}\x1b[0m`);
           }
         } else {
-          logger.info(
+          logger?.info(
             '[prettier-max] \x1b[32m✓\x1b[0m All files are already properly formatted'
           );
         }
 
-        logger.info(
+        logger?.info(
           `[prettier-max] \x1b[90mFormatting completed in ${result.duration}ms\x1b[0m`
         );
 
@@ -216,11 +153,11 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
         if (typescript && result.errors.length === 0) {
           const tsVersion = await getTypeScriptVersion();
           if (tsVersion) {
-            logger.info('[prettier-max] Running TypeScript validation...');
+            logger?.info('[prettier-max] Running TypeScript validation...');
             const tsResult = await runTypeScriptCheck(rootDir);
 
             if (tsResult.errors.length > 0) {
-              logger.error(
+              logger?.error(
                 `[prettier-max] \x1b[31m✗\x1b[0m TypeScript validation failed: ${tsResult.errors.length} error${tsResult.errors.length === 1 ? '' : 's'}`
               );
 
@@ -228,11 +165,11 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
               for (const error of tsResult.errors) {
                 const relativePath = error.file.replace(rootDir + '/', '');
                 if (error.line && error.column) {
-                  logger.error(
+                  logger?.error(
                     `[prettier-max]   \x1b[31m${relativePath}:${error.line}:${error.column}\x1b[0m - ${error.message}`
                   );
                 } else {
-                  logger.error(
+                  logger?.error(
                     `[prettier-max]   \x1b[31m${relativePath}\x1b[0m - ${error.message}`
                   );
                 }
@@ -243,17 +180,17 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
                   `TypeScript validation failed: ${tsResult.errors.length} error${tsResult.errors.length === 1 ? '' : 's'} found.`
                 );
               } else {
-                logger.warn(
+                logger?.warn(
                   '[prettier-max] \x1b[33m⚠\x1b[0m Build continuing despite TypeScript errors'
                 );
               }
             } else {
-              logger.info(
+              logger?.info(
                 '[prettier-max] \x1b[32m✓\x1b[0m TypeScript validation passed'
               );
             }
 
-            logger.info(
+            logger?.info(
               `[prettier-max] \x1b[90mTypeScript validation completed in ${tsResult.duration}ms\x1b[0m`
             );
           }
@@ -267,7 +204,15 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
           throw error;
         }
         // Log other errors but don't fail the build unless failOnError is true
-        logger.error('[prettier-max] Error running prettier format:', error);
+        if (error instanceof Error) {
+          logger?.error(
+            `[prettier-max] Error running prettier format: ${error.message}`
+          );
+        } else {
+          logger?.error(
+            `[prettier-max] Error running prettier format: ${String(error)}`
+          );
+        }
         if (failOnError) {
           throw error;
         }
