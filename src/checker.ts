@@ -197,7 +197,7 @@ export const runTypeScriptCheck = async (
           const match = line.match(
             /^(.+?)\((\d+),(\d+)\):\s+error\s+TS\d+:\s+(.+)$/
           );
-          if (match) {
+          if (match && match[1] && match[2] && match[3] && match[4]) {
             errors.push({
               file: match[1],
               line: parseInt(match[2], 10),

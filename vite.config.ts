@@ -18,7 +18,7 @@ export default defineConfig({
     screwUp({
       outputMetadataFile: true,
     }),
-    prettierMax(),  // Self-hosted
+    prettierMax(), // Self-hosted
   ],
   build: {
     lib: {
