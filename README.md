@@ -10,6 +10,8 @@ Minimalist automatic Prettier formatting plugin for Vite
 
 ---
 
+[(日本語はこちら)](./README_ja.md)
+
 ## What is this?
 
 prettier-max is a very simple Vite plugin that automatically formats your code with [Prettier](https://prettier.io/) during the build process.
@@ -70,7 +72,7 @@ prettierMax({
   // Fail the build on formatting or TypeScript errors
   // Default: true
   failOnError: true,
-});
+})
 ```
 
 ### Configuration delegations
