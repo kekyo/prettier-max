@@ -12,7 +12,7 @@ Minimalist automatic Prettier formatting plugin for Vite
 
 ## What is this?
 
-prettier-max is a simple Vite plugin that automatically formats your code with [Prettier](https://prettier.io/) during the build process.
+prettier-max is a very simple Vite plugin that automatically formats your code with [Prettier](https://prettier.io/) during the build process.
 It also includes TypeScript validation to ensure your code is type-safe before building.
 
 ESLint is complex and often throws its own configuration errors.
@@ -22,8 +22,8 @@ Key features:
 
 - Automatic Prettier formatting on build start
 - TypeScript type checking after formatting
-- Customizable file targets with gitignore-style patterns
-- Support for .prettierignore files
+- All fine-tuning is specified in `.prettierrc` and `tsconfig.json`, ensuring high consistency
+- This is not doing anything unnecessary
 
 ## Installation
 
@@ -55,10 +55,6 @@ The options you can specify for prettier-max are as follows:
 ```typescript
 // The plugin options:
 prettierMax({
-  // Target files to format (gitignore syntax)
-  // Default: uses .prettierignore patterns
-  targets: ['src/**/*.{ts,tsx,js,jsx}', '!dist/**'],
-
   // Path to prettier config file
   // Default: uses prettier's config resolution
   configPath: '.prettierrc',
@@ -67,13 +63,13 @@ prettierMax({
   // Default: true
   formatOnBuild: true,
 
-  // Fail the build on formatting or TypeScript errors
-  // Default: false
-  failOnError: true,
-
   // Run TypeScript validation after formatting
   // Default: true
   typescript: true,
+
+  // Fail the build on formatting or TypeScript errors
+  // Default: true
+  failOnError: true,
 });
 ```
 
@@ -83,10 +79,10 @@ prettier-max doesn't have any major features that could be described as settings
 They are simply defined by `.prettierrc`, `.prettierignore`, and `tsconfig.json`.
 
 In other words, if you adjust them according
-to the standard Prettier configuration methods or TypeScript compiler configuration methods,
+to the standard Prettier configuration methods and/or TypeScript compiler configuration methods,
 it will work exactly as intended!
 
-Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig.json` to manage your project with more powerful formats and checks. Refer to [Prettier configuration file documentation](https://prettier.io/docs/configuration) and [official TypeScript documentation](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html) for each feature:
+Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig.json` to manage your project with more powerful formats and checks. Refer to [Prettier configuration file documentation](https://prettier.io/docs/configuration) and [official TypeScript documentation](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html) for each feature.
 
 `.prettierrc`:
 
@@ -118,17 +114,7 @@ Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig
 }
 ```
 
-### Target Patterns
-
-When `targets` is specified, the plugin uses gitignore-style patterns:
-
-- `src/**/*.ts` - All TypeScript files in src
-- `!dist/**` - Exclude dist directory
-- `*.config.{js,ts}` - Config files
-
-When `targets` is not specified, the plugin automatically uses `.prettierignore` and `.gitignore` patterns.
-
-### Build Behavior
+### Build behavior
 
 1. On build start, the plugin formats all target files
 2. If formatting succeeds and TypeScript is enabled, it runs type checking
