@@ -12,8 +12,11 @@ Minimalist automatic Prettier formatting plugin for Vite
 
 ## What is this?
 
-prettier-max is a Vite plugin that automatically formats your code with [Prettier](https://prettier.io/) during the build process.
+prettier-max is a simple Vite plugin that automatically formats your code with [Prettier](https://prettier.io/) during the build process.
 It also includes TypeScript validation to ensure your code is type-safe before building.
+
+ESLint is complex and often throws its own configuration errors.
+For those who find basic auto-formatting and TypeScript type checking sufficient, this simple plugin may be useful.
 
 Key features:
 
@@ -45,9 +48,12 @@ export default defineConfig({
 });
 ```
 
-### Configuration Options
+### Configuration options
+
+The options you can specify for prettier-max are as follows:
 
 ```typescript
+// The plugin options:
 prettierMax({
   // Target files to format (gitignore syntax)
   // Default: uses .prettierignore patterns
@@ -69,6 +75,47 @@ prettierMax({
   // Default: true
   typescript: true,
 });
+```
+
+### Configuration delegations
+
+prettier-max doesn't have any major features that could be described as settings.
+They are simply defined by `.prettierrc`, `.prettierignore`, and `tsconfig.json`.
+
+In other words, if you adjust them according
+to the standard Prettier configuration methods or TypeScript compiler configuration methods,
+it will work exactly as intended!
+
+Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig.json` to manage your project with more powerful formats and checks. Refer to [Prettier configuration file documentation](https://prettier.io/docs/configuration) and [official TypeScript documentation](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html) for each feature:
+
+`.prettierrc`:
+
+```json
+{
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "es5"
+}
+```
+
+`tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    // ... (Another required options)
+
+    "useDefineForClassFields": true,
+    "declaration": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true
+  }
+}
 ```
 
 ### Target Patterns
