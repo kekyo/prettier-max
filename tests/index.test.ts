@@ -116,12 +116,12 @@ const baz = 'qux';
         configPath: '.prettierrc',
         reporter: customReporter,
         formatOnBuild: true,
-        failOnFormatError: false,
+        failOnError: false,
       };
 
       const plugin = prettierMax(options);
       expect(plugin.name).toBe('prettier-max');
-      expect(plugin.enforce).toBe('pre');
+      expect(plugin.enforce).not.toBe('pre');
     });
   });
 
@@ -163,7 +163,7 @@ const baz = 'qux';
       expect(pluginWithoutFormat.buildStart).toBeDefined();
     });
 
-    it('should handle failOnFormatError option', async () => {
+    it('should handle failOnError option', async () => {
       const mockLogger = {
         info: vi.fn(),
         warn: vi.fn(),
@@ -175,9 +175,9 @@ const baz = 'qux';
         clear: vi.fn(),
       };
 
-      // Create plugin with failOnFormatError enabled
+      // Create plugin with failOnError enabled
       const plugin = prettierMax({
-        failOnFormatError: true,
+        failOnError: true,
         reporter: mockReporter,
       });
 

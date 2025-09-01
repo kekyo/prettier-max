@@ -72,7 +72,7 @@ prettierMax({
   // Fail the build on formatting or TypeScript errors
   // Default: true
   failOnError: true,
-})
+});
 ```
 
 ### Configuration delegations

@@ -72,7 +72,7 @@ prettierMax({
   // フォーマッティングまたはTypeScriptエラーでビルドを失敗させる
   // デフォルト: true
   failOnError: true,
-})
+});
 ```
 
 ### 設定の委譲
