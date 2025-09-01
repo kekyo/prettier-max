@@ -32,7 +32,6 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
 
   return {
     name: 'prettier-max',
-    enforce: 'pre',
 
     configResolved: async (config) => {
       rootDir = config.root;
