@@ -44,7 +44,7 @@ export default defineConfig({
   plugins: [
     prettierMax(), // Use default settings
   ],
-})
+});
 ```
 
 [See repository document.](https://github.com/kekyo/prettier-max)

@@ -29,7 +29,7 @@
     "images/prettier-max-120.png"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "./gen-packageMetadata.sh && vite build",
     "test": "npm run build && vitest run",
     "dump": "npm run build && screw-up dump",
     "pack": "npm run build && screw-up pack --pack-destination artifacts/"
