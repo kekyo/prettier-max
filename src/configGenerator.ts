@@ -5,7 +5,7 @@
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
-import type { Logger } from 'vite';
+import type { Logger } from './logger.js';
 import { prettierrcTemplate, prettierignoreTemplate } from './templates.js';
 
 /**
@@ -25,7 +25,7 @@ const fileExists = async (filePath: string): Promise<boolean> => {
  */
 export const generatePrettierConfigFiles = async (
   rootDir: string,
-  logger?: Logger
+  logger: Logger
 ): Promise<void> => {
   const prettierrcPath = path.join(rootDir, '.prettierrc');
   const prettierignorePath = path.join(rootDir, '.prettierignore');
@@ -38,15 +38,15 @@ export const generatePrettierConfigFiles = async (
     try {
       const content = JSON.stringify(prettierrcTemplate, null, 2) + '\n';
       await fs.writeFile(prettierrcPath, content, 'utf-8');
-      logger?.info(
-        '[prettier-max]: \x1b[32m✓\x1b[0m Generated .prettierrc file with default configuration'
+      logger.info(
+        '\x1b[32m✓\x1b[0m Generated .prettierrc file with default configuration'
       );
       filesGenerated = true;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger?.warn(
-        `[prettier-max]: \x1b[33m⚠\x1b[0m Failed to generate .prettierrc: ${errorMessage}`
+      logger.warn(
+        `\x1b[33m⚠\x1b[0m Failed to generate .prettierrc: ${errorMessage}`
       );
     }
   }
@@ -56,22 +56,22 @@ export const generatePrettierConfigFiles = async (
   if (!prettierignoreExists) {
     try {
       await fs.writeFile(prettierignorePath, prettierignoreTemplate, 'utf-8');
-      logger?.info(
-        '[prettier-max]: \x1b[32m✓\x1b[0m Generated .prettierignore file with default patterns'
+      logger.info(
+        '\x1b[32m✓\x1b[0m Generated .prettierignore file with default patterns'
       );
       filesGenerated = true;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      logger?.warn(
-        `[prettier-max]: \x1b[33m⚠\x1b[0m Failed to generate .prettierignore: ${errorMessage}`
+      logger.warn(
+        `\x1b[33m⚠\x1b[0m Failed to generate .prettierignore: ${errorMessage}`
       );
     }
   }
 
   if (filesGenerated) {
-    logger?.info(
-      '[prettier-max]: \x1b[90mPrettier config files have been generated. You can customize them as needed.\x1b[0m'
+    logger.info(
+      '\x1b[90mPrettier config files have been generated. You can customize them as needed.\x1b[0m'
     );
   }
 };

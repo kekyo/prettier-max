@@ -29,6 +29,7 @@ out/
 .nuxt/
 *.min.js
 *.min.css
+*.tsbuildinfo
 
 # Test results
 coverage/

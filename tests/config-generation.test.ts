@@ -4,12 +4,14 @@ import { existsSync } from 'fs';
 import * as path from 'path';
 import { createTestDirectory } from './test-utils.js';
 import { generatePrettierConfigFiles } from '../src/configGenerator.js';
+import { createConsoleLogger } from '../src/logger.js';
 import {
   prettierrcTemplate,
   prettierignoreTemplate,
 } from '../src/templates.js';
 
 describe('prettier config generation', () => {
+  const logger = createConsoleLogger('test');
   it('should generate .prettierrc file when it does not exist', async () => {
     const testDir = await createTestDirectory(
       'prettier-max',
@@ -21,7 +23,7 @@ describe('prettier config generation', () => {
     expect(existsSync(prettierrcPath)).toBe(false);
 
     // Generate config files
-    await generatePrettierConfigFiles(testDir);
+    await generatePrettierConfigFiles(testDir, logger);
 
     // Check file was created
     expect(existsSync(prettierrcPath)).toBe(true);
@@ -43,7 +45,7 @@ describe('prettier config generation', () => {
     expect(existsSync(prettierignorePath)).toBe(false);
 
     // Generate config files
-    await generatePrettierConfigFiles(testDir);
+    await generatePrettierConfigFiles(testDir, logger);
 
     // Check file was created
     expect(existsSync(prettierignorePath)).toBe(true);
@@ -65,7 +67,7 @@ describe('prettier config generation', () => {
     await writeFile(prettierrcPath, existingContent, 'utf-8');
 
     // Generate config files
-    await generatePrettierConfigFiles(testDir);
+    await generatePrettierConfigFiles(testDir, logger);
 
     // Verify file was not overwritten
     const content = await readFile(prettierrcPath, 'utf-8');
@@ -84,7 +86,7 @@ describe('prettier config generation', () => {
     await writeFile(prettierignorePath, existingContent, 'utf-8');
 
     // Generate config files
-    await generatePrettierConfigFiles(testDir);
+    await generatePrettierConfigFiles(testDir, logger);
 
     // Verify file was not overwritten
     const content = await readFile(prettierignorePath, 'utf-8');
@@ -104,7 +106,7 @@ describe('prettier config generation', () => {
     expect(existsSync(prettierignorePath)).toBe(false);
 
     // Generate config files
-    await generatePrettierConfigFiles(testDir);
+    await generatePrettierConfigFiles(testDir, logger);
 
     // Check both files were created
     expect(existsSync(prettierrcPath)).toBe(true);
@@ -121,7 +123,9 @@ describe('prettier config generation', () => {
     await mkdir(prettierrcPath);
 
     // Should not throw, just log warning
-    await expect(generatePrettierConfigFiles(testDir)).resolves.toBeUndefined();
+    await expect(
+      generatePrettierConfigFiles(testDir, logger)
+    ).resolves.toBeUndefined();
 
     // Directory should still exist (not replaced by file)
     const s = await stat(prettierrcPath);
