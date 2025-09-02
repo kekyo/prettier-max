@@ -3,10 +3,10 @@
 // Under MIT.
 // https://github.com/kekyo/prettier-max/
 
+import { relative, resolve } from 'path';
+import type { Logger } from '../logger.js';
 import { BaseErrorReporter } from './interface.js';
 import type { PrettierError } from '../types.js';
-import type { Logger } from 'vite';
-import { relative, resolve } from 'node:path';
 
 /**
  * Console reporter for IDE integration
@@ -15,7 +15,7 @@ export class ConsoleReporter extends BaseErrorReporter {
   private readonly cwd: string;
   private hasReportedErrors = false;
   private isBuildMode = false;
-  private logger?: Logger;
+  private logger: Logger | undefined;
 
   constructor(cwd?: string) {
     super();
@@ -70,7 +70,7 @@ export class ConsoleReporter extends BaseErrorReporter {
         const line = error.line || 1;
         const column = error.column || 1;
         this.logger.error(
-          `\x1b[31m${relativePath}(${line},${column}): error PRETTIER001: ${error.message}\x1b[0m`
+          `${relativePath}(${line},${column}): error PRETTIER001: ${error.message}`
         );
       } else if (this.isBuildMode) {
         // Fallback to console.error if logger is not available (build mode)

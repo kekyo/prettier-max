@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import * as path from 'node:path';
-import * as fs from 'fs-extra';
-import { spawn } from 'node:child_process';
+import { mkdir, writeFile } from 'fs/promises';
+import * as path from 'path';
+import { spawn } from 'child_process';
 import { createTestDirectory } from './test-utils.js';
 
 const runCommand = (
@@ -44,7 +44,7 @@ describe('TypeScript validation', () => {
       );
 
       // Create package.json
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'package.json'),
         JSON.stringify(
           {
@@ -65,7 +65,7 @@ describe('TypeScript validation', () => {
       );
 
       // Create tsconfig.json
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'tsconfig.json'),
         JSON.stringify(
           {
@@ -90,7 +90,7 @@ describe('TypeScript validation', () => {
       );
 
       // Create vite.config.ts
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'vite.config.ts'),
         `import { defineConfig } from 'vite';
 import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
@@ -118,10 +118,10 @@ export default defineConfig({
       );
 
       // Create src directory
-      await fs.ensureDir(path.join(testDir, 'src'));
+      await mkdir(path.join(testDir, 'src'), { recursive: true });
 
       // Create a TypeScript file with errors
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'src', 'index.ts'),
         `// File with TypeScript errors
 const add = (a: number, b: number): number => {
@@ -172,7 +172,7 @@ export { add, result, message };
       );
 
       // Create package.json
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'package.json'),
         JSON.stringify(
           {
@@ -193,7 +193,7 @@ export { add, result, message };
       );
 
       // Create tsconfig.json
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'tsconfig.json'),
         JSON.stringify(
           {
@@ -218,7 +218,7 @@ export { add, result, message };
       );
 
       // Create vite.config.ts
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'vite.config.ts'),
         `import { defineConfig } from 'vite';
 import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
@@ -246,10 +246,10 @@ export default defineConfig({
       );
 
       // Create src directory
-      await fs.ensureDir(path.join(testDir, 'src'));
+      await mkdir(path.join(testDir, 'src'), { recursive: true });
 
       // Create a TypeScript file with errors
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'src', 'index.ts'),
         `// File with TypeScript errors
 const multiply = (a: number, b: number): number => {
@@ -289,7 +289,7 @@ export { multiply, result };
       );
 
       // Create package.json
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'package.json'),
         JSON.stringify(
           {
@@ -310,7 +310,7 @@ export { multiply, result };
       );
 
       // Create tsconfig.json
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'tsconfig.json'),
         JSON.stringify(
           {
@@ -335,7 +335,7 @@ export { multiply, result };
       );
 
       // Create vite.config.ts
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'vite.config.ts'),
         `import { defineConfig } from 'vite';
 import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
@@ -363,10 +363,10 @@ export default defineConfig({
       );
 
       // Create src directory
-      await fs.ensureDir(path.join(testDir, 'src'));
+      await mkdir(path.join(testDir, 'src'), { recursive: true });
 
       // Create a valid TypeScript file
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'src', 'index.ts'),
         `// Valid TypeScript code
 const add = (a: number, b: number): number => {
@@ -407,7 +407,7 @@ export { add, result, message };
       );
 
       // Create package.json
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'package.json'),
         JSON.stringify(
           {
@@ -428,7 +428,7 @@ export { add, result, message };
       );
 
       // Create tsconfig.json
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'tsconfig.json'),
         JSON.stringify(
           {
@@ -453,7 +453,7 @@ export { add, result, message };
       );
 
       // Create vite.config.ts
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'vite.config.ts'),
         `import { defineConfig } from 'vite';
 import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
@@ -481,10 +481,10 @@ export default defineConfig({
       );
 
       // Create src directory
-      await fs.ensureDir(path.join(testDir, 'src'));
+      await mkdir(path.join(testDir, 'src'), { recursive: true });
 
       // Create a TypeScript file with errors
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'src', 'index.ts'),
         `// File with TypeScript errors that should be ignored
 const add = (a: number, b: number): number => {

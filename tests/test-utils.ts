@@ -1,6 +1,6 @@
-import * as fs from 'fs-extra';
-import * as path from 'node:path';
+import * as path from 'path';
 import dayjs from 'dayjs';
+import { mkdir } from 'fs/promises';
 
 const timestamp = dayjs().format('YYYYMMDD_HHmmss');
 
@@ -18,7 +18,7 @@ export const createTestDirectory = async (
     categoryName.replace(/\s+/g, '-'),
     testName.replace(/\s+/g, '-')
   );
-  await fs.ensureDir(testDir);
+  await mkdir(testDir, { recursive: true });
   return testDir;
 };
 

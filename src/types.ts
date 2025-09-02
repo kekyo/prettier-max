@@ -3,6 +3,9 @@
 // Under MIT.
 // https://github.com/kekyo/prettier-max/
 
+// Re-export Logger interface for public API
+export type { Logger } from './logger.js';
+
 /**
  * Error information from prettier check
  */
@@ -54,6 +57,12 @@ export interface PrettierMaxOptions {
    * @default Internal default reporter
    */
   reporter?: ErrorReporter;
+
+  /**
+   * Generate .prettierrc and .prettierignore files if they don't exist
+   * @default true
+   */
+  generatePrettierConfig?: boolean;
 }
 
 /**

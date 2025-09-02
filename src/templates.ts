@@ -1,4 +1,21 @@
-# Dependencies
+// prettier-max - A simple prettier Vite plugin
+// Copyright (c) Kouji Matsui (@kekyo@mi.kekyo.net)
+// Under MIT.
+// https://github.com/kekyo/prettier-max/
+
+/**
+ * Default .prettierrc template
+ */
+export const prettierrcTemplate = {
+  semi: true,
+  singleQuote: true,
+  trailingComma: 'es5',
+} as const;
+
+/**
+ * Default .prettierignore template
+ */
+export const prettierignoreTemplate = `# Dependencies
 node_modules/
 package-lock.json
 yarn.lock
@@ -22,8 +39,6 @@ test-results/
 # IDE files
 .vscode/
 .idea/
-.claude/
-.cursor/
 *.swp
 *.swo
 *~
@@ -52,3 +67,4 @@ temp/
 # Generated files
 *.generated.*
 generated/
+` as const;

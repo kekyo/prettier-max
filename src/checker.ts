@@ -3,8 +3,8 @@
 // Under MIT.
 // https://github.com/kekyo/prettier-max/
 
-import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { spawn } from 'child_process';
+import { join } from 'path';
 import type { FormatResult, PrettierError } from './types.js';
 
 /**
