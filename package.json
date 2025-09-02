@@ -1,10 +1,11 @@
 {
   "name": "prettier-max",
   "version": "0.0.1",
-  "description": "A simple prettier Vite plugin",
+  "description": "Minimalist automatic Prettier formatting plugin for Vite",
   "keywords": [
     "prettier",
-    "vite"
+    "vite",
+    "plugin"
   ],
   "author": "Kouji Matsui (@kekyo@mi.kekyo.net)",
   "license": "MIT",
