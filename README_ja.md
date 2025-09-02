@@ -24,16 +24,16 @@ ESLintは複雑で、しばしば独自の設定エラーを起こします。
 
 - ビルド開始時に、自動的にPrettierでフォーマッティング
 - フォーマッティング後のTypeScript型チェック
-- すべての設定調整は、`.prettierrc`と`tsconfig.json`で指定され、高い一貫性を確保
+- すべての設定調整は、`.prettierrc`、`.prettierignore`、`tsconfig.json`で指定され、一貫性を確保
 - 余計なことは一切行いません
+
+---
 
 ## インストール
 
 ```bash
 npm install --save-dev prettier-max
 ```
-
----
 
 ## 使用方法
 
@@ -49,6 +49,8 @@ export default defineConfig({
   ],
 });
 ```
+
+デフォルト動作で問題なければ、これで完了です！
 
 ### 設定オプション
 
@@ -72,6 +74,10 @@ prettierMax({
   // フォーマッティングまたはTypeScriptエラーでビルドを失敗させる
   // デフォルト: true
   failOnError: true,
+
+  // .prettierrcと.prettierignoreファイルが存在しない場合に生成
+  // デフォルト: true
+  generatePrettierConfig: true,
 });
 ```
 
@@ -81,6 +87,9 @@ prettier-maxには、主要な機能設定がありません。
 それらは単に`.prettierrc`, `.prettierignore`および`tsconfig.json`によって定義されます。
 
 つまり、標準的なPrettierの設定方法やTypeScriptコンパイラの設定方法に従って調整すれば、意図した通りに動作します！
+
+prettier-maxは、`.prettierrc`と`.prettierignore`が存在しなければ、雛形を自動的に配置します。
+（ファイルが存在しない場合のみ生成します。それも気に入らなければ、`generatePrettierConfig`を`false`にすることで抑止できます）
 
 ここでは、より強力なフォーマットとチェックをプロジェクトに適用する、`.prettierrc`と`tsconfig.json`の例を示します。各機能については、[Prettier設定ファイルのドキュメント](https://prettier.io/docs/configuration)と[TypeScript公式ドキュメント](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html)を参照してください。
 

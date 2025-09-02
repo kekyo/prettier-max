@@ -54,6 +54,12 @@ export interface PrettierMaxOptions {
    * @default Internal default reporter
    */
   reporter?: ErrorReporter;
+
+  /**
+   * Generate .prettierrc and .prettierignore files if they don't exist
+   * @default true
+   */
+  generatePrettierConfig?: boolean;
 }
 
 /**

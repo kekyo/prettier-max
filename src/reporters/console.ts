@@ -3,10 +3,10 @@
 // Under MIT.
 // https://github.com/kekyo/prettier-max/
 
+import type { Logger } from 'vite';
+import { relative, resolve } from 'path';
 import { BaseErrorReporter } from './interface.js';
 import type { PrettierError } from '../types.js';
-import type { Logger } from 'vite';
-import { relative, resolve } from 'node:path';
 
 /**
  * Console reporter for IDE integration

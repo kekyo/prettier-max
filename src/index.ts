@@ -12,6 +12,7 @@ import {
   getTypeScriptVersion,
   runTypeScriptCheck,
 } from './checker.js';
+import { generatePrettierConfigFiles } from './configGenerator.js';
 import { version, git_commit_hash } from './generated/packageMetadata.js';
 
 /**
@@ -24,6 +25,7 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
     formatOnBuild = true,
     failOnError = true,
     typescript = true,
+    generatePrettierConfig = true,
   } = options;
 
   let reporter: ErrorReporter;
@@ -40,6 +42,11 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
       reporter = customReporter ?? new ConsoleReporter(rootDir);
 
       logger?.info(`[prettier-max]: ${version}-${git_commit_hash}: Started.`);
+
+      // Generate prettier config files if enabled
+      if (generatePrettierConfig) {
+        await generatePrettierConfigFiles(rootDir, logger);
+      }
 
       // Check if prettier is available
       const prettierVersion = await getPrettierVersion();

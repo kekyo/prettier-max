@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFile, writeFile } from 'fs/promises';
+import * as path from 'path';
 import { createTestDirectory } from './test-utils.js';
 import prettierMax from '../src/index.js';
 import type { PrettierMaxOptions } from '../src/index.js';
 import { ConsoleReporter } from '../src/reporters/console.js';
 import { runPrettierFormatProject } from '../src/checker.js';
-import * as fs from 'fs-extra';
-import * as path from 'node:path';
 
 describe('prettier-max plugin', () => {
   describe('ConsoleReporter', () => {
@@ -65,7 +65,7 @@ describe('prettier-max plugin', () => {
       const unformattedContent = `const  foo   =    "bar"  ;
         const    baz="qux";`;
       const filePath = path.join(testDir, 'unformatted.js');
-      await fs.writeFile(filePath, unformattedContent);
+      await writeFile(filePath, unformattedContent);
 
       // Run prettier format on project
       const result = await runPrettierFormatProject(testDir, undefined);
@@ -75,7 +75,7 @@ describe('prettier-max plugin', () => {
       expect(result.formattedFiles[0]).toContain('unformatted.js');
 
       // Check that file was actually formatted
-      const formattedContent = await fs.readFile(filePath, 'utf-8');
+      const formattedContent = await readFile(filePath, 'utf-8');
       expect(formattedContent).not.toBe(unformattedContent);
       expect(formattedContent).toContain("const foo = 'bar';");
     });
@@ -86,7 +86,7 @@ describe('prettier-max plugin', () => {
 const baz = 'qux';
 `;
       const filePath = path.join(testDir, 'formatted.js');
-      await fs.writeFile(filePath, formattedContent);
+      await writeFile(filePath, formattedContent);
 
       // Run prettier format on project
       const result = await runPrettierFormatProject(testDir, undefined);
@@ -95,7 +95,7 @@ const baz = 'qux';
       expect(result.formattedFiles.length).toBe(0); // No files were modified
 
       // Verify content unchanged
-      const contentAfter = await fs.readFile(filePath, 'utf-8');
+      const contentAfter = await readFile(filePath, 'utf-8');
       expect(contentAfter).toBe(formattedContent);
     });
   });
@@ -134,12 +134,12 @@ const baz = 'qux';
 
     it('should format entire project on build start', async () => {
       // Create test files
-      await fs.writeFile(
+      await writeFile(
         path.join(testDir, 'formatted.js'),
         `const foo = 'bar';\n`
       );
       const unformattedPath = path.join(testDir, 'unformatted.js');
-      await fs.writeFile(unformattedPath, `const  foo   =    "bar"  ;`);
+      await writeFile(unformattedPath, `const  foo   =    "bar"  ;`);
 
       // Run project format
       const result = await runPrettierFormatProject(testDir, undefined);
@@ -151,7 +151,7 @@ const baz = 'qux';
       ).toBe(true);
 
       // Verify the file was actually formatted
-      const formatted = await fs.readFile(unformattedPath, 'utf-8');
+      const formatted = await readFile(unformattedPath, 'utf-8');
       expect(formatted).toContain("const foo = 'bar';");
     });
 

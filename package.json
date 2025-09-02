@@ -35,7 +35,6 @@
     "pack": "npm run build && screw-up pack --pack-destination artifacts/"
   },
   "peerDependencies": {
-    "ignore": ">=7.0.0",
     "prettier": ">=3.6.0",
     "typescript": ">=5.0.0"
   },
@@ -43,7 +42,6 @@
     "@types/fs-extra": ">=11.0.0",
     "@types/node": ">=20.0.0",
     "dayjs": ">=1.11.0",
-    "fs-extra": ">=11.0.0",
     "screw-up": ">=1.3.0",
     "vite": ">=5.0.0",
     "vite-plugin-dts": ">=3.0.0",

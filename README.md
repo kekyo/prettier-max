@@ -24,16 +24,16 @@ Key features:
 
 - Automatic Prettier formatting on build start
 - TypeScript type checking after formatting
-- All fine-tuning is specified in `.prettierrc` and `tsconfig.json`, ensuring high consistency
+- All fine-tuning is specified in `.prettierrc`, `.prettierignore` and `tsconfig.json`, ensuring consistency
 - This is not doing anything unnecessary
+
+---
 
 ## Installation
 
 ```bash
 npm install --save-dev prettier-max
 ```
-
----
 
 ## Usage
 
@@ -49,6 +49,8 @@ export default defineConfig({
   ],
 });
 ```
+
+If the default behavior is fine, you're all set!
 
 ### Configuration options
 
@@ -72,6 +74,10 @@ prettierMax({
   // Fail the build on formatting or TypeScript errors
   // Default: true
   failOnError: true,
+
+  // Generate .prettierrc and .prettierignore files if they don't exist
+  // Default: true
+  generatePrettierConfig: true,
 });
 ```
 
@@ -80,9 +86,11 @@ prettierMax({
 prettier-max doesn't have any major features that could be described as settings.
 They are simply defined by `.prettierrc`, `.prettierignore`, and `tsconfig.json`.
 
-In other words, if you adjust them according
-to the standard Prettier configuration methods and/or TypeScript compiler configuration methods,
+In other words, if you adjust them according to the standard Prettier configuration methods and/or TypeScript compiler configuration methods,
 it will work exactly as intended!
+
+prettier-max automatically places templates if `.prettierrc` and `.prettierignore` do not exist.
+(It generates them only if the files do NOT exist. If you dislike this behavior, you can suppress it by setting `generatePrettierConfig` to `false`.)
 
 Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig.json` to manage your project with more powerful formats and checks. Refer to [Prettier configuration file documentation](https://prettier.io/docs/configuration) and [official TypeScript documentation](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html) for each feature.
 
