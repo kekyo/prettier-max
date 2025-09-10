@@ -83,7 +83,9 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
           if (detectDeprecated) {
             logger.debug('Deprecated symbol detection enabled');
           } else {
-            logger.debug('Deprecated symbol detection disabled (performance mode)');
+            logger.debug(
+              'Deprecated symbol detection disabled (performance mode)'
+            );
           }
         }
       }
@@ -178,7 +180,11 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
           const tsVersion = await getTypeScriptVersion();
           if (tsVersion) {
             logger.info('Running TypeScript validation...');
-            const tsResult = await runTypeScriptCheck(rootDir, detectDeprecated, logger);
+            const tsResult = await runTypeScriptCheck(
+              rootDir,
+              detectDeprecated,
+              logger
+            );
 
             if (tsResult.errors.length > 0) {
               logger.error(

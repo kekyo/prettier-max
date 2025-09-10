@@ -171,7 +171,7 @@ export { result1, result2, result3 };
     expect(output).toContain('oldFunction');
     expect(output).toContain('is deprecated');
     expect(output).toContain('Use newFunction instead');
-    
+
     expect(output).toContain('legacyFunction');
     expect(output).toContain('This function will be removed in v2.0.0');
 
@@ -321,7 +321,7 @@ export { value1, value2, value3 };
     expect(output).toContain('OldAPI');
     expect(output).toContain('is deprecated');
     expect(output).toContain('Use NewAPI instead');
-    
+
     expect(output).toContain('getOldValue');
     expect(output).toContain('Use getNewValue instead');
 
@@ -906,13 +906,13 @@ export { topLevelResult };
 
     // Check that warnings were generated
     expect(output).toContain('PMAX001');
-    
+
     // Check specific warnings that should appear
     // The output shows line numbers where deprecated symbols are used
-    
+
     // Count the number of PMAX001 occurrences
     const warningCount = (output.match(/PMAX001/g) || []).length;
-    
+
     // We expect exactly 6 warnings:
     // 1. newMethod calling oldFunction (line 873)
     // 2. newMethod calling deprecatedHelper (line 873)
@@ -920,7 +920,7 @@ export { topLevelResult };
     // 4. normalFunction calling oldFunction (line 881)
     // 5. normalFunction calling oldMethod (line 881)
     // 6. Top-level call to oldFunction (line 886)
-    
+
     // But NOT from deprecated functions calling other deprecated functions
     expect(warningCount).toBe(6);
   }, 20000);

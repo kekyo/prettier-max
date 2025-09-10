@@ -8,7 +8,7 @@ import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import dts from 'vite-plugin-dts';
 import screwUp from 'screw-up';
-//import prettierMax from './src/index';
+import prettierMax from './src/index';
 
 export default defineConfig({
   plugins: [
@@ -18,7 +18,7 @@ export default defineConfig({
     screwUp({
       outputMetadataFile: true,
     }),
-//    prettierMax(), // Self-hosted
+    prettierMax(), // Self-hosted
   ],
   build: {
     lib: {

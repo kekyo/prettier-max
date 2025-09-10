@@ -33,7 +33,10 @@ describe('Deprecated detection suppression directive', () => {
   };
 
   it('should suppress deprecated warning with @prettier-max-ignore-deprecated directive', async () => {
-    const testDir = await createTestDirectory('deprecated-suppression', 'suppress-warning');
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'suppress-warning'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     const testFile = join(testDir, 'test.ts');
@@ -58,7 +61,7 @@ export function normalFunction(): void {
     );
 
     await createTsConfigFile(testDir);
-    
+
     // Create a mock logger to capture debug messages
     const mockLogger = {
       debug: vi.fn(),
@@ -66,14 +69,14 @@ export function normalFunction(): void {
       warn: vi.fn(),
       error: vi.fn(),
     };
-    
+
     const result = await runTypeScriptCheck(testDir, true, mockLogger);
-    
+
     // Should have one warning (the unsuppressed one)
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].message).toContain('PMAX001');
     expect(result.errors[0].line).toBe(14); // Line with unsuppressed usage
-    
+
     // Check that debug log was called for suppression
     expect(mockLogger.info).toHaveBeenCalledWith(
       expect.stringContaining('Found suppression directive')
@@ -84,7 +87,10 @@ export function normalFunction(): void {
   });
 
   it('should work with directive without note', async () => {
-    const testDir = await createTestDirectory('deprecated-suppression', 'suppress-without-note');
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'suppress-without-note'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     const testFile = join(testDir, 'test.ts');
@@ -105,16 +111,19 @@ function test() {
     );
 
     await createTsConfigFile(testDir);
-    
+
     const result = await runTypeScriptCheck(testDir, true);
-    
+
     // Should have no errors
     expect(result.success).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
 
   it('should report PMAX002 for unused suppression directive', async () => {
-    const testDir = await createTestDirectory('deprecated-suppression', 'unused-directive');
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'unused-directive'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     const testFile = join(testDir, 'test.ts');
@@ -133,18 +142,23 @@ export function normalFunction(): void {
     );
 
     await createTsConfigFile(testDir);
-    
+
     const result = await runTypeScriptCheck(testDir, true);
-    
+
     // Should have one PMAX002 error
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0].message).toContain('PMAX002');
-    expect(result.errors[0].message).toContain('Unnecessary @prettier-max-ignore-deprecated directive');
+    expect(result.errors[0].message).toContain(
+      'Unnecessary @prettier-max-ignore-deprecated directive'
+    );
     expect(result.errors[0].line).toBe(7); // Line with the directive
   });
 
   it('should handle multiple suppressions correctly', async () => {
-    const testDir = await createTestDirectory('deprecated-suppression', 'multiple-suppressions');
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'multiple-suppressions'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     const testFile = join(testDir, 'test.ts');
@@ -184,22 +198,59 @@ function test() {
     );
 
     await createTsConfigFile(testDir);
-    
+
     const result = await runTypeScriptCheck(testDir, true);
-    
+
     // Should have 2 errors: 1 PMAX001 and 1 PMAX002
-    const pmax001Errors = result.errors.filter(e => e.message.includes('PMAX001'));
-    const pmax002Errors = result.errors.filter(e => e.message.includes('PMAX002'));
-    
+    const pmax001Errors = result.errors.filter((e) =>
+      e.message.includes('PMAX001')
+    );
+    const pmax002Errors = result.errors.filter((e) =>
+      e.message.includes('PMAX002')
+    );
+
     expect(pmax001Errors).toHaveLength(1);
     expect(pmax002Errors).toHaveLength(1);
-    
+
     expect(pmax001Errors[0].line).toBe(29); // Unsuppressed usage
     expect(pmax002Errors[0].line).toBe(26); // Unused directive
   });
 
+  it('should not trigger PMAX002 for non-directive comments mentioning the directive', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'non-directive-comment'
+    );
+    await fs.mkdir(testDir, { recursive: true });
+
+    const testFile = join(testDir, 'test.ts');
+    await fs.writeFile(
+      testFile,
+      `
+// This file tests the suppression directive
+
+export function testFunction(): void {
+  // Check for @prettier-max-ignore-deprecated directive
+  console.log('This comment mentions the directive but is not one');
+  
+  // Another comment about @prettier-max-ignore-deprecated usage
+  console.log('Should not trigger PMAX002');
+}
+`
+    );
+
+    await createTsConfigFile(testDir);
+    const result = await runTypeScriptCheck(testDir, true);
+
+    // Should have no errors - these are not actual directives
+    expect(result.errors).toHaveLength(0);
+  });
+
   it('should not interfere when detectDeprecated is false', async () => {
-    const testDir = await createTestDirectory('deprecated-suppression', 'disabled-detection');
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'disabled-detection'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     const testFile = join(testDir, 'test.ts');
@@ -219,17 +270,20 @@ export { result };
     );
 
     await createTsConfigFile(testDir);
-    
+
     // Run with detectDeprecated = false
     const result = await runTypeScriptCheck(testDir, false);
-    
+
     // Should have no errors at all
     expect(result.success).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
 
   it('should handle suppression in different contexts', async () => {
-    const testDir = await createTestDirectory('deprecated-suppression', 'different-contexts');
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'different-contexts'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     const testFile = join(testDir, 'test.ts');
@@ -263,12 +317,14 @@ function test() {
     );
 
     await createTsConfigFile(testDir);
-    
+
     const result = await runTypeScriptCheck(testDir, true);
-    
+
     // Should have only one PMAX001 warning (the unsuppressed one)
-    const pmax001Errors = result.errors.filter(e => e.message.includes('PMAX001'));
-    
+    const pmax001Errors = result.errors.filter((e) =>
+      e.message.includes('PMAX001')
+    );
+
     expect(pmax001Errors).toHaveLength(1);
     expect(pmax001Errors[0].message).toContain('OldClass');
     expect(pmax001Errors[0].line).toBe(23); // Unsuppressed usage

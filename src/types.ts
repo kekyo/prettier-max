@@ -65,7 +65,7 @@ export interface PrettierMaxOptions {
   generatePrettierConfig?: boolean;
 
   /**
-   * Detect usage of deprecated symbols marked with @deprecated JSDoc tag
+   * Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag
    * Disabling this can improve performance on large projects
    * @default true
    */

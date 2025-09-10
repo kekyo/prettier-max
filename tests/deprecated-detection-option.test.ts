@@ -32,7 +32,10 @@ describe('Deprecated detection option', () => {
   };
 
   it('should not detect deprecated usage when detectDeprecated is false', async () => {
-    const testDir = await createTestDirectory('deprecated-detection-option', 'detect-deprecated-false');
+    const testDir = await createTestDirectory(
+      'deprecated-detection-option',
+      'detect-deprecated-false'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     // Create a file with deprecated usage
@@ -62,17 +65,20 @@ export const useOldArrow = () => oldArrowFunc();
     );
 
     await createTsConfigFile(testDir);
-    
+
     // Run check with detectDeprecated set to false
     const result = await runTypeScriptCheck(testDir, false);
-    
+
     // Should have no errors when detectDeprecated is false
     expect(result.success).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
 
   it('should detect deprecated usage when detectDeprecated is true (default)', async () => {
-    const testDir = await createTestDirectory('deprecated-detection-option', 'detect-deprecated-true');
+    const testDir = await createTestDirectory(
+      'deprecated-detection-option',
+      'detect-deprecated-true'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     // Create a file with deprecated usage
@@ -102,23 +108,32 @@ export const useOldArrow = () => oldArrowFunc();
     );
 
     await createTsConfigFile(testDir);
-    
+
     // Run check with detectDeprecated set to true (default)
     const result = await runTypeScriptCheck(testDir, true);
-    
+
     // Should have deprecation warnings
     expect(result.success).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    
+
     // Check for specific error messages
-    const deprecationErrors = result.errors.filter(e => e.message.includes('PMAX001'));
+    const deprecationErrors = result.errors.filter((e) =>
+      e.message.includes('PMAX001')
+    );
     expect(deprecationErrors.length).toBeGreaterThan(0);
-    expect(result.errors.some(e => e.message.includes('oldFunction'))).toBe(true);
-    expect(result.errors.some(e => e.message.includes('deprecated'))).toBe(true);
+    expect(result.errors.some((e) => e.message.includes('oldFunction'))).toBe(
+      true
+    );
+    expect(result.errors.some((e) => e.message.includes('deprecated'))).toBe(
+      true
+    );
   });
 
   it('should use default value (true) when detectDeprecated is not specified', async () => {
-    const testDir = await createTestDirectory('deprecated-detection-option', 'detect-deprecated-default');
+    const testDir = await createTestDirectory(
+      'deprecated-detection-option',
+      'detect-deprecated-default'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     // Create a file with deprecated usage
@@ -138,19 +153,24 @@ export const useOldInterface = (data: OldInterface) => data.value;
     );
 
     await createTsConfigFile(testDir);
-    
+
     // Run check without specifying detectDeprecated (should use default: true)
     const result = await runTypeScriptCheck(testDir);
-    
+
     // Should have deprecation warning by default
     expect(result.success).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors.some(e => e.message.includes('PMAX001'))).toBe(true);
-    expect(result.errors.some(e => e.message.includes('OldInterface'))).toBe(true);
+    expect(result.errors.some((e) => e.message.includes('PMAX001'))).toBe(true);
+    expect(result.errors.some((e) => e.message.includes('OldInterface'))).toBe(
+      true
+    );
   });
 
   it('should have better performance with detectDeprecated false on large codebases', async () => {
-    const testDir = await createTestDirectory('deprecated-detection-option', 'performance-test');
+    const testDir = await createTestDirectory(
+      'deprecated-detection-option',
+      'performance-test'
+    );
     await fs.mkdir(testDir, { recursive: true });
 
     // Create multiple files with deprecated symbols to simulate a larger codebase
@@ -186,25 +206,25 @@ export const test${i}_3 = useOldClass${i}();
     }
 
     await createTsConfigFile(testDir);
-    
+
     // Measure time with detectDeprecated false
     const startTimeFalse = Date.now();
     const resultFalse = await runTypeScriptCheck(testDir, false);
     const durationFalse = Date.now() - startTimeFalse;
-    
+
     // Measure time with detectDeprecated true
     const startTimeTrue = Date.now();
     const resultTrue = await runTypeScriptCheck(testDir, true);
     const durationTrue = Date.now() - startTimeTrue;
-    
+
     // With detectDeprecated false, should have no errors
     expect(resultFalse.success).toBe(true);
     expect(resultFalse.errors).toHaveLength(0);
-    
+
     // With detectDeprecated true, should have many deprecation warnings
     expect(resultTrue.success).toBe(false);
     expect(resultTrue.errors.length).toBeGreaterThan(0);
-    
+
     // Performance note: detectDeprecated=false should typically be faster
     // due to skipping TypeChecker creation and AST traversal
     // However, we can't reliably assert timing in tests due to system variability
