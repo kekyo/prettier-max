@@ -184,14 +184,14 @@ export const runTypeScriptCheck = async (
       const lines = formatted.split('\n');
       for (const line of lines) {
         const match = line.match(
-          /^(.+?)\((\d+),(\d+)\):\s+error\s+TS\d+:\s+(.+)$/
+          /^(.+?)\((\d+),(\d+)\):\s+error\s+(TS\d+):\s+(.+)$/
         );
-        if (match && match[1] && match[2] && match[3] && match[4]) {
+        if (match && match[1] && match[2] && match[3] && match[4] && match[5]) {
           errors.push({
             file: match[1],
             line: parseInt(match[2], 10),
             column: parseInt(match[3], 10),
-            message: match[4],
+            message: `${match[4]}: ${match[5]}`,
           });
         } else if (line.trim()) {
           errors.push({
@@ -252,14 +252,14 @@ export const runTypeScriptCheck = async (
 
         // TypeScript error format: file(line,column): error TSxxxx: message
         const match = cleanLine.match(
-          /^(.+?):(\d+):(\d+)\s+-\s+error\s+TS\d+:\s+(.+)$/
+          /^(.+?):(\d+):(\d+)\s+-\s+error\s+(TS\d+):\s+(.+)$/
         );
-        if (match && match[1] && match[2] && match[3] && match[4]) {
+        if (match && match[1] && match[2] && match[3] && match[4] && match[5]) {
           errors.push({
             file: match[1],
             line: parseInt(match[2], 10),
             column: parseInt(match[3], 10),
-            message: match[4],
+            message: `${match[4]}: ${match[5]}`,
           });
         }
       }
