@@ -212,7 +212,7 @@ const checkDeprecatedUsage = (
 
           if (logger) {
             const note = match[1] ? `: ${match[1].trim()}` : '';
-            logger.info(
+            logger.debug(
               `Found suppression directive at ${sourceFile.fileName}:${commentLine + 1}${note}`
             );
           }
