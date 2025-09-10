@@ -141,6 +141,101 @@ export const getTypeScriptVersion = async (): Promise<string | undefined> => {
 };
 
 /**
+ * Check for deprecated symbol usage in TypeScript code
+ */
+const checkDeprecatedUsage = (
+  program: ts.Program,
+  checker: ts.TypeChecker
+): PrettierError[] => {
+  const deprecationWarnings: PrettierError[] = [];
+  const checkedSymbols = new Set<ts.Symbol>();
+
+  // Helper function to get deprecation message from JSDoc tags
+  const getDeprecationMessage = (symbol: ts.Symbol): string | undefined => {
+    try {
+      const jsdocTags = symbol.getJsDocTags(checker);
+      const deprecatedTag = jsdocTags.find(tag => tag.name === 'deprecated');
+      if (deprecatedTag && deprecatedTag.text) {
+        return deprecatedTag.text.map(part => part.text).join('');
+      }
+    } catch {
+      // Ignore errors when getting JSDoc tags
+    }
+    return undefined;
+  };
+
+  // Visit each source file
+  for (const sourceFile of program.getSourceFiles()) {
+    // Skip node_modules and declaration files
+    if (sourceFile.fileName.includes('node_modules') || sourceFile.isDeclarationFile) {
+      continue;
+    }
+
+    // Walk the AST to find deprecated usage
+    const visit = (node: ts.Node): void => {
+      // Check identifiers (variable/function references)
+      if (ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) {
+        const symbol = checker.getSymbolAtLocation(node);
+        if (symbol && !checkedSymbols.has(symbol)) {
+          checkedSymbols.add(symbol);
+
+          // Check if symbol is deprecated
+          const deprecationMessage = getDeprecationMessage(symbol);
+          if (deprecationMessage !== undefined) {
+            const sourceFile = node.getSourceFile();
+            const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+              node.getStart()
+            );
+
+            deprecationWarnings.push({
+              file: sourceFile.fileName,
+              line: line + 1,
+              column: character + 1,
+              message: `PMAX001: '${symbol.getName()}' is deprecated${
+                deprecationMessage ? `: ${deprecationMessage}` : ''
+              }`,
+            });
+          }
+
+          // Also check the value declaration for ModifierFlags.Deprecated
+          if (symbol.valueDeclaration) {
+            const modifierFlags = ts.getCombinedModifierFlags(symbol.valueDeclaration as ts.Declaration);
+            if (modifierFlags & ts.ModifierFlags.Deprecated) {
+              const sourceFile = node.getSourceFile();
+              const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+                node.getStart()
+              );
+
+              // Only add if not already added by JSDoc check
+              const alreadyAdded = deprecationWarnings.some(
+                w => w.file === sourceFile.fileName && 
+                     w.line === line + 1 && 
+                     w.column === character + 1
+              );
+
+              if (!alreadyAdded) {
+                deprecationWarnings.push({
+                  file: sourceFile.fileName,
+                  line: line + 1,
+                  column: character + 1,
+                  message: `PMAX001: '${symbol.getName()}' is deprecated`,
+                });
+              }
+            }
+          }
+        }
+      }
+
+      ts.forEachChild(node, visit);
+    };
+
+    visit(sourceFile);
+  }
+
+  return deprecationWarnings;
+};
+
+/**
  * Run TypeScript type checking using TypeScript Compiler API
  */
 export const runTypeScriptCheck = async (
@@ -225,6 +320,9 @@ export const runTypeScriptCheck = async (
       parsedCommandLine.options
     );
 
+    // Get TypeChecker for additional analysis
+    const checker = program.getTypeChecker();
+
     // Get all diagnostics
     const allDiagnostics = ts
       .getPreEmitDiagnostics(program)
@@ -264,6 +362,12 @@ export const runTypeScriptCheck = async (
         }
       }
     }
+
+    // Check for deprecated symbol usage
+    const deprecationWarnings = checkDeprecatedUsage(program, checker);
+    
+    // Add deprecation warnings to errors
+    errors.push(...deprecationWarnings);
 
     return {
       success: errors.length === 0,
