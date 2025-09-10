@@ -32,7 +32,14 @@ export default defineConfig({
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
-      external: ['vite', 'path', 'child_process', 'fs/promises', 'fs'],
+      external: [
+        'vite',
+        'path',
+        'child_process',
+        'fs/promises',
+        'fs',
+        'typescript',
+      ],
     },
     sourcemap: true,
     minify: false,

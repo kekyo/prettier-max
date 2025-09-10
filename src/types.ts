@@ -63,6 +63,13 @@ export interface PrettierMaxOptions {
    * @default true
    */
   generatePrettierConfig?: boolean;
+
+  /**
+   * Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag
+   * Disabling this can improve performance on large projects
+   * @default true
+   */
+  detectDeprecated?: boolean;
 }
 
 /**

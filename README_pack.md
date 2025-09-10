@@ -20,19 +20,19 @@ For those who find basic auto-formatting and TypeScript type checking sufficient
 Key features:
 
 - Automatic Prettier formatting on build start
-- TypeScript type checking after formatting
+- TypeScript type checking after formatting, with JSDoc deprecated (`@deprecated`) detection
 - All fine-tuning is specified in `.prettierrc` and `tsconfig.json`, ensuring high consistency
 - This is not doing anything unnecessary
 
-## Installation
-
-```bash
-npm install --save-dev prettier-max
-```
-
 ---
 
-## Usage
+## Installation
+
+Install in `devDepencencies`:
+
+```bash
+npm install -D prettier-max
+```
 
 Add the plugin to your `vite.config.ts`:
 
@@ -46,6 +46,15 @@ export default defineConfig({
   ],
 });
 ```
+
+If the default behavior is fine, you're all set!
+
+The build works as follows:
+
+1. On build start, the plugin formats all target files
+2. If formatting succeeds and TypeScript is enabled (by default), it runs type checking and detecting deprecation
+3. Errors are reported to the console with file paths and line numbers
+4. If `failOnError` is `true` (by default), the build stops on any errors
 
 [See repository document.](https://github.com/kekyo/prettier-max)
 

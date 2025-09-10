@@ -23,7 +23,7 @@ For those who find basic auto-formatting and TypeScript type checking sufficient
 Key features:
 
 - Automatic Prettier formatting on build start
-- TypeScript type checking after formatting
+- TypeScript type checking after formatting, with JSDoc deprecated (`@deprecated`) detection
 - All fine-tuning is specified in `.prettierrc`, `.prettierignore` and `tsconfig.json`, ensuring consistency
 - This is not doing anything unnecessary
 
@@ -31,11 +31,11 @@ Key features:
 
 ## Installation
 
-```bash
-npm install --save-dev prettier-max
-```
+Install in `devDepencencies`:
 
-## Usage
+```bash
+npm install -D prettier-max
+```
 
 Add the plugin to your `vite.config.ts`:
 
@@ -52,6 +52,15 @@ export default defineConfig({
 
 If the default behavior is fine, you're all set!
 
+The build works as follows:
+
+1. On build start, the plugin formats all target files
+2. If formatting succeeds and TypeScript is enabled (by default), it runs type checking and detecting deprecation
+3. Errors are reported to the console with file paths and line numbers
+4. If `failOnError` is `true` (by default), the build stops on any errors
+
+## Usage
+
 ### Configuration options
 
 The options you can specify for prettier-max are as follows:
@@ -59,8 +68,8 @@ The options you can specify for prettier-max are as follows:
 ```typescript
 // The plugin options:
 prettierMax({
-  // Path to prettier config file
-  // Default: uses prettier's config resolution
+  // Path to Prettier config file
+  // Default: uses Prettier's config resolution
   configPath: '.prettierrc',
 
   // Format files on build start
@@ -71,13 +80,17 @@ prettierMax({
   // Default: true
   typescript: true,
 
-  // Fail the build on formatting or TypeScript errors
+  // Fail the build on Prettier formatting or TypeScript errors
   // Default: true
   failOnError: true,
 
   // Generate .prettierrc and .prettierignore files if they don't exist
   // Default: true
   generatePrettierConfig: true,
+
+  // Detect usage of deprecated symbols marked with @deprecated JSDoc tag
+  // Default: true
+  detectDeprecated: true,
 });
 ```
 
@@ -124,12 +137,39 @@ Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig
 }
 ```
 
-### Build behavior
+### Deprecated detection
 
-1. On build start, the plugin formats all target files
-2. If formatting succeeds and TypeScript is enabled, it runs type checking
-3. Errors are reported to the console with file paths and line numbers
-4. If `failOnError` is true, the build stops on any errors
+prettier-max can detect usage of deprecated symbols marked with `@deprecated` JSDoc tags:
+
+```typescript
+/**
+ * @deprecated Will be removed in future
+ */
+const olderSuperComponent = () => {
+  // ...
+};
+
+// PMAX001: 'olderSuperComponent' is deprecated: Will be removed in future
+olderSuperComponent();
+```
+
+- Reports `PMAX001` errors when deprecated symbols are used
+- Deprecated functions calling other deprecated symbols won't generate warnings
+
+You can temporarily suppress this warning by inserting the `@prettier-max-ignore-deprecated` directive in your code:
+
+```typescript
+// @prettier-max-ignore-deprecated: Will fix soon
+olderSuperComponent();
+```
+
+Note that suppressions are logged to the console.
+
+If the directive doesn't suppress any deprecated usage, a `PMAX002` error is reported.
+In that case, please remove the unnecessary directive.
+
+Detecting deprecation causes TypeScript to perform detailed analysis.
+If detection performance becomes an issue, you can disable it by setting `detectDeprecated: false`.
 
 ---
 

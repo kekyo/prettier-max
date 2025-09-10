@@ -161,6 +161,10 @@ export { add, result, message };
       expect(output).toContain('src/index.ts');
       expect(output).toContain('not assignable');
 
+      // Check that TS error codes are included
+      expect(output).toContain('TS2345'); // Type error code for argument type mismatch
+      expect(output).toContain('TS2322'); // Type error code for type assignment mismatch
+
       // Build should continue (failOnError: false)
       expect(output).toContain('Build continuing despite TypeScript errors');
     }, 20000);
@@ -280,6 +284,9 @@ export { multiply, result };
 
       // Check error message
       expect(output).toContain('TypeScript validation failed');
+
+      // Check that TS error code is included
+      expect(output).toContain('TS2345'); // Type error code for argument type mismatch
     }, 20000);
 
     it('should pass when no TypeScript errors', async () => {
@@ -517,6 +524,153 @@ export { add, result };
 
       // Build should succeed (TypeScript errors ignored)
       expect(code).toBe(0);
+    }, 20000);
+
+    it('should preserve TypeScript error codes in output', async () => {
+      const testDir = await createTestDirectory(
+        'typescript-validation',
+        'preserve-error-codes'
+      );
+
+      // Create package.json
+      await writeFile(
+        path.join(testDir, 'package.json'),
+        JSON.stringify(
+          {
+            name: 'test-project',
+            type: 'module',
+            scripts: {
+              build: 'vite build',
+            },
+            devDependencies: {
+              vite: '>=5.0.0',
+              prettier: '>=3.6.0',
+              typescript: '>=5.0.0',
+            },
+          },
+          null,
+          2
+        )
+      );
+
+      // Create tsconfig.json
+      await writeFile(
+        path.join(testDir, 'tsconfig.json'),
+        JSON.stringify(
+          {
+            compilerOptions: {
+              target: 'ES2020',
+              module: 'ESNext',
+              lib: ['ES2020'],
+              skipLibCheck: true,
+              moduleResolution: 'bundler',
+              resolveJsonModule: true,
+              isolatedModules: true,
+              noEmit: true,
+              strict: true,
+              esModuleInterop: true,
+              forceConsistentCasingInFileNames: true,
+            },
+            include: ['src'],
+          },
+          null,
+          2
+        )
+      );
+
+      // Create vite.config.ts
+      await writeFile(
+        path.join(testDir, 'vite.config.ts'),
+        `import { defineConfig } from 'vite';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+
+export default defineConfig({
+  plugins: [
+    prettierMax({
+      typescript: true,
+      failOnError: false,
+    }),
+  ],
+  logLevel: 'info',
+  build: {
+    lib: {
+      entry: 'src/index.ts',
+      formats: ['es'],
+      fileName: 'index',
+    },
+    rollupOptions: {
+      external: [],
+    },
+  },
+});
+`
+      );
+
+      // Create src directory
+      await mkdir(path.join(testDir, 'src'), { recursive: true });
+
+      // Create a TypeScript file with various types of errors
+      await writeFile(
+        path.join(testDir, 'src', 'index.ts'),
+        `// File with various TypeScript errors to test error code preservation
+
+// TS2304: Cannot find name
+const undefinedVar = nonExistentVariable;
+
+// TS2345: Argument type mismatch
+const add = (a: number, b: number): number => a + b;
+const result1 = add("string", 123);
+
+// TS2322: Type assignment mismatch
+const numberVar: number = "not a number";
+
+// TS2339: Property does not exist
+const obj = { prop1: "value" };
+const value = obj.nonExistentProperty;
+
+// TS2554: Expected arguments mismatch
+const func = (a: number, b: number) => a + b;
+const result2 = func(1);
+
+// TS2551: Property name misspelling (did you mean...?)
+const config = { enabled: true };
+const isOn = config.enable; // Should suggest 'enabled'
+
+export { undefinedVar, result1, numberVar, value, result2, isOn };
+`
+      );
+
+      // Install dependencies
+      await runCommand('npm', ['install'], testDir);
+
+      // Run build
+      const { stdout, stderr, code } = await runCommand(
+        'npx',
+        ['vite', 'build'],
+        testDir
+      );
+
+      const output = stdout + stderr;
+
+      // Check that TypeScript validation ran
+      expect(output).toContain('Running TypeScript validation');
+      expect(output).toContain('TypeScript validation failed');
+
+      // Check that all expected TS error codes are preserved in the output
+      expect(output).toContain('TS2304'); // Cannot find name
+      expect(output).toContain('TS2345'); // Argument type mismatch
+      expect(output).toContain('TS2322'); // Type assignment mismatch
+      expect(output).toContain('TS2339'); // Property does not exist
+      expect(output).toContain('TS2554'); // Expected arguments mismatch
+      expect(output).toContain('TS2551'); // Property name misspelling
+
+      // Check that error messages are in the expected format (TS####: message)
+      expect(output).toMatch(/TS2304:.*Cannot find name/);
+      expect(output).toMatch(/TS2345:.*not assignable to parameter/);
+      expect(output).toMatch(/TS2322:.*not assignable to type/);
+      expect(output).toMatch(/TS2339:.*does not exist on type/);
+      expect(output).toMatch(/TS2554:.*Expected \d+ arguments/);
+      expect(output).toMatch(/TS2551:.*Did you mean/);
     }, 20000);
   });
 });
