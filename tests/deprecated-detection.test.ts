@@ -739,6 +739,191 @@ export { x, y, processOld, processNew };
     expect(output).toContain('is deprecated');
   }, 20000);
 
+  it('should not warn about deprecated usage within deprecated functions', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-detection',
+      'deprecated-within-deprecated'
+    );
+
+    // Create package.json
+    await writeFile(
+      path.join(testDir, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'test-project',
+          type: 'module',
+          scripts: {
+            build: 'vite build',
+          },
+          devDependencies: {
+            vite: '>=5.0.0',
+            prettier: '>=3.6.0',
+            typescript: '>=5.0.0',
+          },
+        },
+        null,
+        2
+      )
+    );
+
+    // Create tsconfig.json
+    await writeFile(
+      path.join(testDir, 'tsconfig.json'),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            target: 'ES2020',
+            module: 'ESNext',
+            lib: ['ES2020'],
+            skipLibCheck: true,
+            moduleResolution: 'bundler',
+            resolveJsonModule: true,
+            isolatedModules: true,
+            noEmit: true,
+            strict: true,
+            esModuleInterop: true,
+            forceConsistentCasingInFileNames: true,
+          },
+          include: ['src'],
+        },
+        null,
+        2
+      )
+    );
+
+    // Create vite.config.ts
+    await writeFile(
+      path.join(testDir, 'vite.config.ts'),
+      `import { defineConfig } from 'vite';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+
+export default defineConfig({
+  plugins: [
+    prettierMax({
+      typescript: true,
+      failOnError: false,
+    }),
+  ],
+  logLevel: 'info',
+  build: {
+    lib: {
+      entry: 'src/index.ts',
+      formats: ['es'],
+      fileName: 'index',
+    },
+    rollupOptions: {
+      external: [],
+    },
+  },
+});
+`
+    );
+
+    // Create src directory
+    await mkdir(path.join(testDir, 'src'), { recursive: true });
+
+    // Create a TypeScript file with deprecated functions calling other deprecated functions
+    await writeFile(
+      path.join(testDir, 'src', 'index.ts'),
+      `// File with deprecated functions calling other deprecated functions
+
+/**
+ * @deprecated Will be removed
+ */
+export function deprecatedHelper(): string {
+  return 'helper';
+}
+
+/**
+ * @deprecated Use newFunction instead
+ */
+export function oldFunction(): string {
+  // Calling another deprecated function from within a deprecated function
+  // This should NOT generate a warning
+  return deprecatedHelper();
+}
+
+/**
+ * @deprecated Legacy code
+ */
+export const arrowFunc = () => {
+  // Deprecated arrow function calling deprecated functions
+  // These should NOT generate warnings
+  const result1 = oldFunction();
+  const result2 = deprecatedHelper();
+  return result1 + result2;
+};
+
+/**
+ * @deprecated Old API
+ */
+export class OldAPI {
+  /**
+   * @deprecated Old method
+   */
+  oldMethod(): string {
+    // Deprecated method calling deprecated functions
+    // These should NOT generate warnings
+    return oldFunction() + deprecatedHelper();
+  }
+  
+  newMethod(): string {
+    // Non-deprecated method calling deprecated functions
+    // These SHOULD generate warnings
+    return oldFunction() + deprecatedHelper();
+  }
+}
+
+// Normal function calling deprecated functions
+// These SHOULD generate warnings
+export function normalFunction(): string {
+  const api = new OldAPI();
+  return oldFunction() + api.oldMethod();
+}
+
+// Top-level calls to deprecated functions
+// These SHOULD generate warnings
+const topLevelResult = oldFunction();
+
+export { topLevelResult };
+`
+    );
+
+    // Install dependencies
+    await runCommand('npm', ['install'], testDir);
+
+    // Run build
+    const { stdout, stderr } = await runCommand(
+      'npx',
+      ['vite', 'build'],
+      testDir
+    );
+
+    const output = stdout + stderr;
+
+    // Check that TypeScript validation ran
+    expect(output).toContain('Running TypeScript validation');
+
+    // Check that warnings were generated
+    expect(output).toContain('PMAX001');
+    
+    // Check specific warnings that should appear
+    // The output shows line numbers where deprecated symbols are used
+    
+    // Count the number of PMAX001 occurrences
+    const warningCount = (output.match(/PMAX001/g) || []).length;
+    
+    // We expect exactly 5 warnings:
+    // 1. arrowFunc export (line 22) - non-deprecated context
+    // 2. OldAPI export (line 33) - non-deprecated context  
+    // 3. newMethod calling oldFunction (line 46)
+    // 4. newMethod calling deprecatedHelper (line 46)
+    // 5. oldMethod being called (line 54) - from normalFunction
+    
+    // But NOT from deprecated functions calling other deprecated functions
+    expect(warningCount).toBe(5);
+  }, 20000);
+
   it('should not warn about non-deprecated symbols', async () => {
     const testDir = await createTestDirectory(
       'deprecated-detection',

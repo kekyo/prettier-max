@@ -173,6 +173,40 @@ const checkDeprecatedUsage = (
 
     // Walk the AST to find deprecated usage
     const visit = (node: ts.Node): void => {
+      // Check if this is a function-like node that is deprecated
+      // If so, skip checking its body
+      if (ts.isFunctionDeclaration(node) || 
+          ts.isFunctionExpression(node) ||
+          ts.isArrowFunction(node) ||
+          ts.isMethodDeclaration(node) ||
+          ts.isConstructorDeclaration(node)) {
+        
+        let funcSymbol: ts.Symbol | undefined;
+        
+        // Get symbol based on node type
+        if (ts.isFunctionDeclaration(node) && node.name) {
+          funcSymbol = checker.getSymbolAtLocation(node.name);
+        } else if (ts.isMethodDeclaration(node) && node.name) {
+          funcSymbol = checker.getSymbolAtLocation(node.name);
+        } else if (ts.isConstructorDeclaration(node)) {
+          // For constructors, check the parent class
+          const parent = node.parent;
+          if (ts.isClassDeclaration(parent) && parent.name) {
+            funcSymbol = checker.getSymbolAtLocation(parent.name);
+          }
+        } else if ((ts.isFunctionExpression(node) || ts.isArrowFunction(node)) && 
+                   node.parent && ts.isVariableDeclaration(node.parent) && 
+                   ts.isIdentifier(node.parent.name)) {
+          // For arrow functions and function expressions, check the variable declaration
+          funcSymbol = checker.getSymbolAtLocation(node.parent.name);
+        }
+        
+        // If this function is deprecated, skip checking its body
+        if (funcSymbol && getDeprecationMessage(funcSymbol) !== undefined) {
+          return; // Early return - don't check descendants
+        }
+      }
+
       let symbolToCheck: ts.Symbol | undefined;
       let nodeToReport = node;
 
