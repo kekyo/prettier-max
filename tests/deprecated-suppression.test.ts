@@ -78,7 +78,7 @@ export function normalFunction(): void {
     expect(result.errors[0].line).toBe(14); // Line with unsuppressed usage
 
     // Check that debug log was called for suppression
-    expect(mockLogger.info).toHaveBeenCalledWith(
+    expect(mockLogger.debug).toHaveBeenCalledWith(
       expect.stringContaining('Found suppression directive')
     );
     expect(mockLogger.info).toHaveBeenCalledWith(
@@ -328,5 +328,131 @@ function test() {
     expect(pmax001Errors).toHaveLength(1);
     expect(pmax001Errors[0].message).toContain('OldClass');
     expect(pmax001Errors[0].line).toBe(23); // Unsuppressed usage
+  });
+
+  it('should detect and suppress deprecated default imports', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'default-import'
+    );
+    await fs.mkdir(testDir, { recursive: true });
+
+    // Create a module with deprecated default export
+    const moduleFile = join(testDir, 'oldModule.ts');
+    await fs.writeFile(
+      moduleFile,
+      `/**
+ * @deprecated Use NewModule instead
+ */
+class OldModule {
+  value = 'old';
+}
+
+// @prettier-max-ignore-deprecated: Exporting deprecated module
+export default OldModule;
+`
+    );
+
+    // Create main file that imports the deprecated default
+    const testFile = join(testDir, 'test.ts');
+    await fs.writeFile(
+      testFile,
+      `// @prettier-max-ignore-deprecated: Migration planned
+import OldModule from './oldModule';
+
+// This should trigger warning (no suppression)
+import AnotherOldModule from './oldModule';
+
+const instance1 = new OldModule();
+const instance2 = new AnotherOldModule();
+
+export { instance1, instance2 };
+`
+    );
+
+    await createTsConfigFile(testDir);
+
+    const result = await runTypeScriptCheck(testDir, true);
+
+    // Should have one PMAX001 error for unsuppressed import
+    const pmax001Errors = result.errors.filter((e) =>
+      e.message.includes('PMAX001')
+    );
+
+    expect(pmax001Errors).toHaveLength(1);
+    expect(pmax001Errors[0].message).toContain('OldModule');
+    expect(pmax001Errors[0].line).toBe(5); // Line with unsuppressed import
+  });
+
+  it('should detect and suppress deprecated type imports', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'type-import'
+    );
+    await fs.mkdir(testDir, { recursive: true });
+
+    // Create a module with deprecated types
+    const moduleFile = join(testDir, 'types.ts');
+    await fs.writeFile(
+      moduleFile,
+      `/**
+ * @deprecated Use NewType instead
+ */
+export type OldType = {
+  value: string;
+};
+
+/**
+ * @deprecated Use NewInterface instead
+ */
+export interface OldInterface {
+  data: number;
+}
+
+export type CurrentType = {
+  active: boolean;
+};
+`
+    );
+
+    // Create main file that imports deprecated types
+    const testFile = join(testDir, 'test.ts');
+    await fs.writeFile(
+      testFile,
+      `// @prettier-max-ignore-deprecated: Type migration in progress
+import type { OldType, OldInterface } from './types';
+
+// This should trigger warnings (no suppression)
+import type { OldInterface as OldInt } from './types';
+
+// @prettier-max-ignore-deprecated: Using current type
+import type { CurrentType } from './types'; // This will trigger PMAX002
+
+type MyData = OldType & OldInterface;
+type AnotherData = OldInt;
+
+export type { MyData, AnotherData };
+`
+    );
+
+    await createTsConfigFile(testDir);
+
+    const result = await runTypeScriptCheck(testDir, true);
+
+    // Should have one PMAX001 error for unsuppressed import
+    const pmax001Errors = result.errors.filter((e) =>
+      e.message.includes('PMAX001')
+    );
+    const pmax002Errors = result.errors.filter((e) =>
+      e.message.includes('PMAX002')
+    );
+
+    expect(pmax001Errors).toHaveLength(1);
+    expect(pmax001Errors[0].message).toContain('OldInterface');
+    expect(pmax001Errors[0].line).toBe(5); // Line with unsuppressed import
+
+    // Should have one PMAX002 for unnecessary suppression
+    expect(pmax002Errors).toHaveLength(1);
+    expect(pmax002Errors[0].line).toBe(7); // Line with unnecessary directive
   });
 });

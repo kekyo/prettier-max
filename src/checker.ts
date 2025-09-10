@@ -212,7 +212,7 @@ const checkDeprecatedUsage = (
 
           if (logger) {
             const note = match[1] ? `: ${match[1].trim()}` : '';
-            logger.info(
+            logger.debug(
               `Found suppression directive at ${sourceFile.fileName}:${commentLine + 1}${note}`
             );
           }
@@ -313,6 +313,16 @@ const checkDeprecatedUsage = (
           // Get the actual symbol being imported
           const aliasedSymbol = checker.getAliasedSymbol(importedSymbol);
           symbolToCheck = aliasedSymbol || importedSymbol;
+        }
+      } else if (ts.isImportClause(node)) {
+        // Check default import (e.g., import MyDefault from './module')
+        if (node.name) {
+          const importedSymbol = checker.getSymbolAtLocation(node.name);
+          if (importedSymbol) {
+            const aliasedSymbol = checker.getAliasedSymbol(importedSymbol);
+            symbolToCheck = aliasedSymbol || importedSymbol;
+            nodeToReport = node.name;
+          }
         }
       } else if (ts.isExportSpecifier(node)) {
         // Export specifier - check the exported symbol
