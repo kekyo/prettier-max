@@ -23,7 +23,7 @@ ESLintは複雑で、しばしば独自の設定エラーを起こします。
 主な機能：
 
 - ビルド開始時に、自動的にPrettierでフォーマッティング
-- フォーマッティング後のTypeScript型チェック
+- フォーマッティング後のTypeScript型チェック。更にJSDocの非推奨(`@deprecated`)もチェック可能
 - すべての設定調整は、`.prettierrc`、`.prettierignore`、`tsconfig.json`で指定され、一貫性を確保
 - 余計なことは一切行いません
 
@@ -31,11 +31,11 @@ ESLintは複雑で、しばしば独自の設定エラーを起こします。
 
 ## インストール
 
-```bash
-npm install --save-dev prettier-max
-```
+`devDepencencies`に追加します:
 
-## 使用方法
+```bash
+npm install -D prettier-max
+```
 
 `vite.config.ts`にプラグインを追加します：
 
@@ -52,6 +52,15 @@ export default defineConfig({
 
 デフォルト動作で問題なければ、これで完了です！
 
+ビルドは次のように動作します:
+
+1. ビルド開始時に、プラグインはすべての対象ファイルをフォーマット
+2. フォーマッティングが成功し、TypeScriptが有効（デフォルト）な場合、型チェックと非推奨検出を実行
+3. エラーはファイルパスと行番号と共にコンソールに報告される
+4. `failOnError` が `true` （デフォルト）の場合、エラーがあるとビルドが停止
+
+## 使用方法
+
 ### 設定オプション
 
 prettier-maxに指定できるオプションは以下の通りです：
@@ -59,8 +68,8 @@ prettier-maxに指定できるオプションは以下の通りです：
 ```typescript
 // プラグインオプション：
 prettierMax({
-  // prettierの設定ファイルへのパス
-  // デフォルト: (prettierの自動認識)
+  // Prettierの設定ファイルへのパス
+  // デフォルト: (Prettierの自動認識)
   configPath: '.prettierrc',
 
   // ビルド開始時にファイルをフォーマット
@@ -71,13 +80,17 @@ prettierMax({
   // デフォルト: true
   typescript: true,
 
-  // フォーマッティングまたはTypeScriptエラーでビルドを失敗させる
+  // PrettierフォーマッティングまたはTypeScriptエラーでビルドを失敗させる
   // デフォルト: true
   failOnError: true,
 
   // .prettierrcと.prettierignoreファイルが存在しない場合に生成
   // デフォルト: true
   generatePrettierConfig: true,
+
+  // @deprecated JSDocタグでマークされた非推奨シンボルの使用を検出
+  // デフォルト: true
+  detectDeprecated: true,
 });
 ```
 
@@ -123,12 +136,38 @@ prettier-maxは、`.prettierrc`と`.prettierignore`が存在しなければ、�
 }
 ```
 
-### ビルド動作
+### 非推奨の検出
 
-1. ビルド開始時に、プラグインはすべての対象ファイルをフォーマット
-2. フォーマッティングが成功し、TypeScriptが有効な場合、型チェックを実行
-3. エラーはファイルパスと行番号と共にコンソールに報告される
-4. `failOnError`がtrueの場合、エラーがあるとビルドが停止
+prettier-maxは `@deprecated` JSDocタグでマークされた非推奨シンボルの使用を検出できます：
+
+```typescript
+/**
+ * @deprecated 将来削除予定
+ */
+const olderSuperComponent = () => {
+  // ...
+};
+
+// PMAX001: 'olderSuperComponent' is deprecated: 将来削除予定
+olderSuperComponent();
+```
+
+- 非推奨シンボルが使用されると、 `PMAX001` エラーが報告されます
+- 非推奨関数が他の非推奨シンボルを呼び出しても警告されません
+
+`@prettier-max-ignore-deprecated` ディレクティブをコード上に挿入することで、この警告を一時的に抑制できます:
+
+```typescript
+// @prettier-max-ignore-deprecated: 近日中に修正予定
+olderSuperComponent();
+```
+
+但し、抑制されたことが通常ログで出力されます。
+
+このディレクティブが非推奨シンボルを抑制していない場合は、 `PMAX002` エラーが報告されます。
+その場合は、ディレクティブを削除して下さい。
+
+非推奨の検出は、TypeScriptに詳細解析を行わせます。もし、検出速度が問題になる場合は、 `detectDeprecated: false` でこれを無効化できます。
 
 ---
 
