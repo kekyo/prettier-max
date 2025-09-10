@@ -4,7 +4,8 @@
 // https://github.com/kekyo/prettier-max/
 
 import { spawn } from 'child_process';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import * as ts from 'typescript';
 import type { FormatResult, PrettierError } from './types.js';
 
 /**
@@ -128,107 +129,160 @@ export const getPrettierVersion = async (): Promise<string | undefined> => {
 };
 
 /**
- * Check if TypeScript is available
+ * Check if TypeScript is available and get its version
  */
 export const getTypeScriptVersion = async (): Promise<string | undefined> => {
-  return new Promise((resolve) => {
-    const checkProcess = spawn('npx', ['tsc', '--version'], {
-      shell: process.platform === 'win32',
-    });
-
-    let stdout: string = '';
-
-    checkProcess.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    checkProcess.on('close', (code) => {
-      if (code === 0 && stdout) {
-        // Extract version from "Version X.X.X" format
-        const match = stdout.match(/Version\s+(\S+)/);
-        resolve(match ? match[1] : stdout.trim());
-      } else {
-        resolve(undefined);
-      }
-    });
-
-    checkProcess.on('error', () => {
-      resolve(undefined);
-    });
-  });
+  try {
+    // Return the version from TypeScript API directly
+    return ts.version;
+  } catch {
+    return undefined;
+  }
 };
 
 /**
- * Run TypeScript type checking
+ * Run TypeScript type checking using TypeScript Compiler API
  */
 export const runTypeScriptCheck = async (
   cwd: string
 ): Promise<FormatResult> => {
   const startTime = Date.now();
+  const errors: PrettierError[] = [];
 
-  return new Promise((resolve) => {
-    const errors: PrettierError[] = [];
-
-    const tscProcess = spawn('npx', ['tsc', '--noEmit'], {
+  try {
+    // Find tsconfig.json
+    const configFileName = ts.findConfigFile(
       cwd,
-      shell: process.platform === 'win32',
-    });
+      ts.sys.fileExists,
+      'tsconfig.json'
+    );
 
-    let stdout = '';
-    let stderr = '';
+    if (!configFileName) {
+      return {
+        success: false,
+        errors: [
+          {
+            file: cwd,
+            message: 'Could not find a valid tsconfig.json',
+          },
+        ],
+        formattedFiles: [],
+        duration: Date.now() - startTime,
+      };
+    }
 
-    tscProcess.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
+    // Read and parse tsconfig.json
+    const configFile = ts.readConfigFile(configFileName, ts.sys.readFile);
+    if (configFile.error) {
+      const formatted = ts.formatDiagnostic(configFile.error, {
+        getCurrentDirectory: () => cwd,
+        getCanonicalFileName: (fileName) => fileName,
+        getNewLine: () => ts.sys.newLine,
+      });
 
-    tscProcess.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    tscProcess.on('close', (code) => {
-      const duration = Date.now() - startTime;
-
-      if (code !== 0) {
-        // Parse TypeScript errors from stdout (TypeScript outputs to stdout, not stderr)
-        const output = stdout || stderr;
-        const lines = output.split('\n');
-        for (const line of lines) {
-          // TypeScript error format: file(line,column): error TSxxxx: message
-          const match = line.match(
-            /^(.+?)\((\d+),(\d+)\):\s+error\s+TS\d+:\s+(.+)$/
-          );
-          if (match && match[1] && match[2] && match[3] && match[4]) {
-            errors.push({
-              file: match[1],
-              line: parseInt(match[2], 10),
-              column: parseInt(match[3], 10),
-              message: match[4],
-            });
-          }
+      // Parse formatted error to extract components
+      const lines = formatted.split('\n');
+      for (const line of lines) {
+        const match = line.match(
+          /^(.+?)\((\d+),(\d+)\):\s+error\s+TS\d+:\s+(.+)$/
+        );
+        if (match && match[1] && match[2] && match[3] && match[4]) {
+          errors.push({
+            file: match[1],
+            line: parseInt(match[2], 10),
+            column: parseInt(match[3], 10),
+            message: match[4],
+          });
+        } else if (line.trim()) {
+          errors.push({
+            file: configFileName,
+            message: line.trim(),
+          });
         }
       }
 
-      resolve({
-        success: code === 0,
-        errors,
-        formattedFiles: [], // TypeScript check doesn't format files
-        duration,
-      });
-    });
-
-    tscProcess.on('error', (error) => {
-      const duration = Date.now() - startTime;
-      errors.push({
-        file: cwd,
-        message: `Failed to run TypeScript check: ${error.message}`,
-      });
-
-      resolve({
+      return {
         success: false,
         errors,
         formattedFiles: [],
-        duration,
-      });
+        duration: Date.now() - startTime,
+      };
+    }
+
+    // Parse the configuration
+    const parsedCommandLine = ts.parseJsonConfigFileContent(
+      configFile.config,
+      ts.sys,
+      dirname(configFileName)
+    );
+
+    // Set noEmit to true to match tsc --noEmit behavior
+    parsedCommandLine.options.noEmit = true;
+
+    // Create TypeScript program
+    const program = ts.createProgram(
+      parsedCommandLine.fileNames,
+      parsedCommandLine.options
+    );
+
+    // Get all diagnostics
+    const allDiagnostics = ts
+      .getPreEmitDiagnostics(program)
+      .concat(program.getConfigFileParsingDiagnostics());
+
+    // Format diagnostics to match tsc output format
+    if (allDiagnostics.length > 0) {
+      const formatHost: ts.FormatDiagnosticsHost = {
+        getCurrentDirectory: () => cwd,
+        getCanonicalFileName: (fileName) => fileName,
+        getNewLine: () => ts.sys.newLine,
+      };
+
+      // Format diagnostics with color and context (same as tsc)
+      const formatted = ts.formatDiagnosticsWithColorAndContext(
+        allDiagnostics,
+        formatHost
+      );
+
+      // Parse formatted output to extract error components
+      const lines = formatted.split('\n');
+      for (const line of lines) {
+        // Remove ANSI color codes
+        const cleanLine = line.replace(/\x1b\[[0-9;]*m/g, '');
+
+        // TypeScript error format: file(line,column): error TSxxxx: message
+        const match = cleanLine.match(
+          /^(.+?):(\d+):(\d+)\s+-\s+error\s+TS\d+:\s+(.+)$/
+        );
+        if (match && match[1] && match[2] && match[3] && match[4]) {
+          errors.push({
+            file: match[1],
+            line: parseInt(match[2], 10),
+            column: parseInt(match[3], 10),
+            message: match[4],
+          });
+        }
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      errors,
+      formattedFiles: [],
+      duration: Date.now() - startTime,
+    };
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    errors.push({
+      file: cwd,
+      message: `Failed to run TypeScript check: ${error instanceof Error ? error.message : String(error)}`,
     });
-  });
+
+    return {
+      success: false,
+      errors,
+      formattedFiles: [],
+      duration,
+    };
+  }
 };
