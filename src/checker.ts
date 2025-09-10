@@ -302,7 +302,8 @@ const checkDeprecatedUsage = (
  * Run TypeScript type checking using TypeScript Compiler API
  */
 export const runTypeScriptCheck = async (
-  cwd: string
+  cwd: string,
+  detectDeprecated: boolean = true
 ): Promise<FormatResult> => {
   const startTime = Date.now();
   const errors: PrettierError[] = [];
@@ -383,9 +384,6 @@ export const runTypeScriptCheck = async (
       parsedCommandLine.options
     );
 
-    // Get TypeChecker for additional analysis
-    const checker = program.getTypeChecker();
-
     // Get all diagnostics
     const allDiagnostics = ts
       .getPreEmitDiagnostics(program)
@@ -426,11 +424,15 @@ export const runTypeScriptCheck = async (
       }
     }
 
-    // Check for deprecated symbol usage
-    const deprecationWarnings = checkDeprecatedUsage(program, checker);
-    
-    // Add deprecation warnings to errors
-    errors.push(...deprecationWarnings);
+    // Check for deprecated symbol usage if enabled
+    if (detectDeprecated) {
+      // Get TypeChecker only when needed for deprecated detection
+      const checker = program.getTypeChecker();
+      const deprecationWarnings = checkDeprecatedUsage(program, checker);
+      
+      // Add deprecation warnings to errors
+      errors.push(...deprecationWarnings);
+    }
 
     return {
       success: errors.length === 0,
