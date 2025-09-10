@@ -314,6 +314,16 @@ const checkDeprecatedUsage = (
           const aliasedSymbol = checker.getAliasedSymbol(importedSymbol);
           symbolToCheck = aliasedSymbol || importedSymbol;
         }
+      } else if (ts.isImportClause(node)) {
+        // Check default import (e.g., import MyDefault from './module')
+        if (node.name) {
+          const importedSymbol = checker.getSymbolAtLocation(node.name);
+          if (importedSymbol) {
+            const aliasedSymbol = checker.getAliasedSymbol(importedSymbol);
+            symbolToCheck = aliasedSymbol || importedSymbol;
+            nodeToReport = node.name;
+          }
+        }
       } else if (ts.isExportSpecifier(node)) {
         // Export specifier - check the exported symbol
         const exportedSymbol = checker.getSymbolAtLocation(node.name);
