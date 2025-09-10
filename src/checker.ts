@@ -173,54 +173,83 @@ const checkDeprecatedUsage = (
 
     // Walk the AST to find deprecated usage
     const visit = (node: ts.Node): void => {
-      // Check identifiers (variable/function references)
-      if (ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) {
-        const symbol = checker.getSymbolAtLocation(node);
-        if (symbol && !checkedSymbols.has(symbol)) {
-          checkedSymbols.add(symbol);
+      let symbolToCheck: ts.Symbol | undefined;
+      let nodeToReport = node;
 
-          // Check if symbol is deprecated
-          const deprecationMessage = getDeprecationMessage(symbol);
-          if (deprecationMessage !== undefined) {
-            const sourceFile = node.getSourceFile();
+      // Determine which symbol to check based on node type
+      if (ts.isIdentifier(node)) {
+        // Direct identifier reference
+        symbolToCheck = checker.getSymbolAtLocation(node);
+      } else if (ts.isPropertyAccessExpression(node)) {
+        // Property access (obj.prop)
+        symbolToCheck = checker.getSymbolAtLocation(node);
+      } else if (ts.isElementAccessExpression(node)) {
+        // Element access (obj['prop'])
+        symbolToCheck = checker.getSymbolAtLocation(node);
+      } else if (ts.isCallExpression(node)) {
+        // Function call - check the function being called
+        symbolToCheck = checker.getSymbolAtLocation(node.expression);
+        nodeToReport = node.expression;
+      } else if (ts.isNewExpression(node)) {
+        // Constructor call - check the class being instantiated
+        symbolToCheck = checker.getSymbolAtLocation(node.expression);
+        nodeToReport = node.expression;
+      } else if (ts.isImportSpecifier(node)) {
+        // Import specifier - check the imported symbol
+        symbolToCheck = checker.getSymbolAtLocation(node.name);
+      } else if (ts.isExportSpecifier(node)) {
+        // Export specifier - check the exported symbol
+        symbolToCheck = checker.getSymbolAtLocation(node.name);
+      } else if (ts.isTypeReferenceNode(node)) {
+        // Type reference - check the referenced type
+        symbolToCheck = checker.getSymbolAtLocation(node.typeName);
+        nodeToReport = node.typeName;
+      }
+
+      if (symbolToCheck && !checkedSymbols.has(symbolToCheck)) {
+        checkedSymbols.add(symbolToCheck);
+
+        // Check if symbol is deprecated
+        const deprecationMessage = getDeprecationMessage(symbolToCheck);
+        if (deprecationMessage !== undefined) {
+          const sourceFile = nodeToReport.getSourceFile();
+          const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+            nodeToReport.getStart()
+          );
+
+          deprecationWarnings.push({
+            file: sourceFile.fileName,
+            line: line + 1,
+            column: character + 1,
+            message: `PMAX001: '${symbolToCheck.getName()}' is deprecated${
+              deprecationMessage ? `: ${deprecationMessage}` : ''
+            }`,
+          });
+        }
+
+        // Also check the value declaration for ModifierFlags.Deprecated
+        if (symbolToCheck.valueDeclaration) {
+          const modifierFlags = ts.getCombinedModifierFlags(symbolToCheck.valueDeclaration as ts.Declaration);
+          if (modifierFlags & ts.ModifierFlags.Deprecated) {
+            const sourceFile = nodeToReport.getSourceFile();
             const { line, character } = sourceFile.getLineAndCharacterOfPosition(
-              node.getStart()
+              nodeToReport.getStart()
             );
 
-            deprecationWarnings.push({
-              file: sourceFile.fileName,
-              line: line + 1,
-              column: character + 1,
-              message: `PMAX001: '${symbol.getName()}' is deprecated${
-                deprecationMessage ? `: ${deprecationMessage}` : ''
-              }`,
-            });
-          }
+            // Only add if not already added by JSDoc check
+            const alreadyAdded = deprecationWarnings.some(
+              w => w.file === sourceFile.fileName && 
+                   w.line === line + 1 && 
+                   w.column === character + 1
+            );
 
-          // Also check the value declaration for ModifierFlags.Deprecated
-          if (symbol.valueDeclaration) {
-            const modifierFlags = ts.getCombinedModifierFlags(symbol.valueDeclaration as ts.Declaration);
-            if (modifierFlags & ts.ModifierFlags.Deprecated) {
-              const sourceFile = node.getSourceFile();
-              const { line, character } = sourceFile.getLineAndCharacterOfPosition(
-                node.getStart()
-              );
-
-              // Only add if not already added by JSDoc check
-              const alreadyAdded = deprecationWarnings.some(
-                w => w.file === sourceFile.fileName && 
-                     w.line === line + 1 && 
-                     w.column === character + 1
-              );
-
-              if (!alreadyAdded) {
-                deprecationWarnings.push({
-                  file: sourceFile.fileName,
-                  line: line + 1,
-                  column: character + 1,
-                  message: `PMAX001: '${symbol.getName()}' is deprecated`,
-                });
-              }
+            if (!alreadyAdded) {
+              deprecationWarnings.push({
+                file: sourceFile.fileName,
+                line: line + 1,
+                column: character + 1,
+                message: `PMAX001: '${symbolToCheck.getName()}' is deprecated`,
+              });
             }
           }
         }

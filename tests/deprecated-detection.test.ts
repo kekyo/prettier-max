@@ -155,7 +155,7 @@ export { result1, result2, result3 };
     await runCommand('npm', ['install'], testDir);
 
     // Run build
-    const { stdout, stderr, code } = await runCommand(
+    const { stdout, stderr } = await runCommand(
       'npx',
       ['vite', 'build'],
       testDir
@@ -305,7 +305,7 @@ export { value1, value2, value3 };
     await runCommand('npm', ['install'], testDir);
 
     // Run build
-    const { stdout, stderr, code } = await runCommand(
+    const { stdout, stderr } = await runCommand(
       'npx',
       ['vite', 'build'],
       testDir
@@ -327,6 +327,416 @@ export { value1, value2, value3 };
 
     // Build should continue (failOnError: false)
     expect(output).toContain('Build continuing despite TypeScript errors');
+  }, 20000);
+
+  it('should detect deprecated usage with bracket notation', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-detection',
+      'bracket-notation'
+    );
+
+    // Create package.json
+    await writeFile(
+      path.join(testDir, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'test-project',
+          type: 'module',
+          scripts: {
+            build: 'vite build',
+          },
+          devDependencies: {
+            vite: '>=5.0.0',
+            prettier: '>=3.6.0',
+            typescript: '>=5.0.0',
+          },
+        },
+        null,
+        2
+      )
+    );
+
+    // Create tsconfig.json
+    await writeFile(
+      path.join(testDir, 'tsconfig.json'),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            target: 'ES2020',
+            module: 'ESNext',
+            lib: ['ES2020'],
+            skipLibCheck: true,
+            moduleResolution: 'bundler',
+            resolveJsonModule: true,
+            isolatedModules: true,
+            noEmit: true,
+            strict: true,
+            esModuleInterop: true,
+            forceConsistentCasingInFileNames: true,
+          },
+          include: ['src'],
+        },
+        null,
+        2
+      )
+    );
+
+    // Create vite.config.ts
+    await writeFile(
+      path.join(testDir, 'vite.config.ts'),
+      `import { defineConfig } from 'vite';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+
+export default defineConfig({
+  plugins: [
+    prettierMax({
+      typescript: true,
+      failOnError: false,
+    }),
+  ],
+  logLevel: 'info',
+  build: {
+    lib: {
+      entry: 'src/index.ts',
+      formats: ['es'],
+      fileName: 'index',
+    },
+    rollupOptions: {
+      external: [],
+    },
+  },
+});
+`
+    );
+
+    // Create src directory
+    await mkdir(path.join(testDir, 'src'), { recursive: true });
+
+    // Create a TypeScript file with bracket notation access to deprecated members
+    await writeFile(
+      path.join(testDir, 'src', 'index.ts'),
+      `// File with bracket notation access to deprecated members
+
+export const api = {
+  /**
+   * @deprecated Use newMethod instead
+   */
+  oldMethod: () => 'old',
+  newMethod: () => 'new',
+};
+
+// Using bracket notation to access deprecated method
+const methodName = 'oldMethod';
+const result1 = api[methodName]();
+const result2 = api['oldMethod']();
+
+export { result1, result2 };
+`
+    );
+
+    // Install dependencies
+    await runCommand('npm', ['install'], testDir);
+
+    // Run build
+    const { stdout, stderr } = await runCommand(
+      'npx',
+      ['vite', 'build'],
+      testDir
+    );
+
+    const output = stdout + stderr;
+
+    // Check that TypeScript validation ran
+    expect(output).toContain('Running TypeScript validation');
+
+    // Check that deprecated warnings were detected
+    expect(output).toContain('PMAX001');
+    expect(output).toContain('oldMethod');
+    expect(output).toContain('is deprecated');
+  }, 20000);
+
+  it('should detect deprecated usage in imports and exports', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-detection',
+      'import-export'
+    );
+
+    // Create package.json
+    await writeFile(
+      path.join(testDir, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'test-project',
+          type: 'module',
+          scripts: {
+            build: 'vite build',
+          },
+          devDependencies: {
+            vite: '>=5.0.0',
+            prettier: '>=3.6.0',
+            typescript: '>=5.0.0',
+          },
+        },
+        null,
+        2
+      )
+    );
+
+    // Create tsconfig.json
+    await writeFile(
+      path.join(testDir, 'tsconfig.json'),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            target: 'ES2020',
+            module: 'ESNext',
+            lib: ['ES2020'],
+            skipLibCheck: true,
+            moduleResolution: 'bundler',
+            resolveJsonModule: true,
+            isolatedModules: true,
+            noEmit: true,
+            strict: true,
+            esModuleInterop: true,
+            forceConsistentCasingInFileNames: true,
+          },
+          include: ['src'],
+        },
+        null,
+        2
+      )
+    );
+
+    // Create vite.config.ts
+    await writeFile(
+      path.join(testDir, 'vite.config.ts'),
+      `import { defineConfig } from 'vite';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+
+export default defineConfig({
+  plugins: [
+    prettierMax({
+      typescript: true,
+      failOnError: false,
+    }),
+  ],
+  logLevel: 'info',
+  build: {
+    lib: {
+      entry: 'src/index.ts',
+      formats: ['es'],
+      fileName: 'index',
+    },
+    rollupOptions: {
+      external: [],
+    },
+  },
+});
+`
+    );
+
+    // Create src directory
+    await mkdir(path.join(testDir, 'src'), { recursive: true });
+
+    // Create module with deprecated exports
+    await writeFile(
+      path.join(testDir, 'src', 'utils.ts'),
+      `/**
+ * @deprecated Use newUtil instead
+ */
+export const oldUtil = () => 'old';
+
+export const newUtil = () => 'new';
+
+/**
+ * @deprecated This class will be removed
+ */
+export class OldClass {
+  value = 42;
+}
+`
+    );
+
+    // Create main file that imports deprecated symbols
+    await writeFile(
+      path.join(testDir, 'src', 'index.ts'),
+      `// Importing deprecated symbols
+import { oldUtil, OldClass, newUtil } from './utils';
+
+const result1 = oldUtil();
+const instance = new OldClass();
+const result2 = newUtil();
+
+// Re-exporting deprecated symbols
+export { oldUtil, OldClass };
+export { result1, result2, instance };
+`
+    );
+
+    // Install dependencies
+    await runCommand('npm', ['install'], testDir);
+
+    // Run build
+    const { stdout, stderr } = await runCommand(
+      'npx',
+      ['vite', 'build'],
+      testDir
+    );
+
+    const output = stdout + stderr;
+
+    // Check that TypeScript validation ran
+    expect(output).toContain('Running TypeScript validation');
+
+    // Check that deprecated warnings were detected for imports
+    expect(output).toContain('PMAX001');
+    expect(output).toContain('oldUtil');
+    expect(output).toContain('OldClass');
+    expect(output).toContain('is deprecated');
+  }, 20000);
+
+  it('should detect deprecated type references', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-detection',
+      'type-references'
+    );
+
+    // Create package.json
+    await writeFile(
+      path.join(testDir, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'test-project',
+          type: 'module',
+          scripts: {
+            build: 'vite build',
+          },
+          devDependencies: {
+            vite: '>=5.0.0',
+            prettier: '>=3.6.0',
+            typescript: '>=5.0.0',
+          },
+        },
+        null,
+        2
+      )
+    );
+
+    // Create tsconfig.json
+    await writeFile(
+      path.join(testDir, 'tsconfig.json'),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            target: 'ES2020',
+            module: 'ESNext',
+            lib: ['ES2020'],
+            skipLibCheck: true,
+            moduleResolution: 'bundler',
+            resolveJsonModule: true,
+            isolatedModules: true,
+            noEmit: true,
+            strict: true,
+            esModuleInterop: true,
+            forceConsistentCasingInFileNames: true,
+          },
+          include: ['src'],
+        },
+        null,
+        2
+      )
+    );
+
+    // Create vite.config.ts
+    await writeFile(
+      path.join(testDir, 'vite.config.ts'),
+      `import { defineConfig } from 'vite';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+
+export default defineConfig({
+  plugins: [
+    prettierMax({
+      typescript: true,
+      failOnError: false,
+    }),
+  ],
+  logLevel: 'info',
+  build: {
+    lib: {
+      entry: 'src/index.ts',
+      formats: ['es'],
+      fileName: 'index',
+    },
+    rollupOptions: {
+      external: [],
+    },
+  },
+});
+`
+    );
+
+    // Create src directory
+    await mkdir(path.join(testDir, 'src'), { recursive: true });
+
+    // Create a TypeScript file with deprecated type definitions and usage
+    await writeFile(
+      path.join(testDir, 'src', 'index.ts'),
+      `// File with deprecated type references
+
+/**
+ * @deprecated Use NewInterface instead
+ */
+export interface OldInterface {
+  value: number;
+}
+
+export interface NewInterface {
+  value: number;
+  extra: string;
+}
+
+/**
+ * @deprecated Use NewType instead
+ */
+export type OldType = string | number;
+export type NewType = string | number | boolean;
+
+// Using deprecated types in type annotations
+let x: OldInterface = { value: 42 };
+let y: OldType = 'test';
+
+function processOld(data: OldInterface): OldType {
+  return data.value;
+}
+
+function processNew(data: NewInterface): NewType {
+  return data.extra;
+}
+
+export { x, y, processOld, processNew };
+`
+    );
+
+    // Install dependencies
+    await runCommand('npm', ['install'], testDir);
+
+    // Run build
+    const { stdout, stderr } = await runCommand(
+      'npx',
+      ['vite', 'build'],
+      testDir
+    );
+
+    const output = stdout + stderr;
+
+    // Check that TypeScript validation ran
+    expect(output).toContain('Running TypeScript validation');
+
+    // Check that deprecated warnings were detected for type references
+    expect(output).toContain('PMAX001');
+    expect(output).toContain('OldInterface');
+    expect(output).toContain('OldType');
+    expect(output).toContain('is deprecated');
   }, 20000);
 
   it('should not warn about non-deprecated symbols', async () => {
