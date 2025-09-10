@@ -75,10 +75,10 @@ export function normalFunction(): void {
     expect(result.errors[0].line).toBe(14); // Line with unsuppressed usage
     
     // Check that debug log was called for suppression
-    expect(mockLogger.debug).toHaveBeenCalledWith(
+    expect(mockLogger.info).toHaveBeenCalledWith(
       expect.stringContaining('Found suppression directive')
     );
-    expect(mockLogger.debug).toHaveBeenCalledWith(
+    expect(mockLogger.info).toHaveBeenCalledWith(
       expect.stringContaining('Suppressed deprecated warning')
     );
   });

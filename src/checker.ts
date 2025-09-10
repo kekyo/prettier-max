@@ -202,14 +202,14 @@ const checkDeprecatedUsage = (
             suppressedLines.set(sourceFile.fileName, new Set());
           }
           suppressedLines.get(sourceFile.fileName)!.add(nextLine);
-          
+
           if (logger) {
             const note = match[1] ? `: ${match[1].trim()}` : '';
-            logger.debug(`Found suppression directive at ${sourceFile.fileName}:${commentLine + 1}${note}`);
+            logger.info(`Found suppression directive at ${sourceFile.fileName}:${commentLine + 1}${note}`);
           }
         }
       }
-      
+
       ts.forEachChild(node, processNode);
     });
 
@@ -335,7 +335,7 @@ const checkDeprecatedUsage = (
             // Mark this suppression as used
             usedSuppressions.add(`${sourceFile.fileName}:${actualLine}`);
             if (logger) {
-              logger.debug(`Suppressed deprecated warning for '${symbolToCheck.getName()}' at ${sourceFile.fileName}:${actualLine}`);
+              logger.info(`Suppressed deprecated warning for '${symbolToCheck.getName()}' at ${sourceFile.fileName}:${actualLine}`);
             }
           } else {
             deprecationWarnings.push({
@@ -372,7 +372,7 @@ const checkDeprecatedUsage = (
                 // Mark this suppression as used
                 usedSuppressions.add(`${sourceFile.fileName}:${actualLine}`);
                 if (logger) {
-                  logger.debug(`Suppressed deprecated warning for '${symbolToCheck.getName()}' at ${sourceFile.fileName}:${actualLine}`);
+                  logger.info(`Suppressed deprecated warning for '${symbolToCheck.getName()}' at ${sourceFile.fileName}:${actualLine}`);
                 }
               } else {
                 deprecationWarnings.push({
