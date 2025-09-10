@@ -178,7 +178,7 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
           const tsVersion = await getTypeScriptVersion();
           if (tsVersion) {
             logger.info('Running TypeScript validation...');
-            const tsResult = await runTypeScriptCheck(rootDir, detectDeprecated);
+            const tsResult = await runTypeScriptCheck(rootDir, detectDeprecated, logger);
 
             if (tsResult.errors.length > 0) {
               logger.error(

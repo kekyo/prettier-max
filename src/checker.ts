@@ -7,6 +7,7 @@ import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import * as ts from 'typescript';
 import type { FormatResult, PrettierError } from './types.js';
+import type { Logger } from './logger.js';
 
 /**
  * Run prettier format on entire project
@@ -145,10 +146,13 @@ export const getTypeScriptVersion = async (): Promise<string | undefined> => {
  */
 const checkDeprecatedUsage = (
   program: ts.Program,
-  checker: ts.TypeChecker
+  checker: ts.TypeChecker,
+  logger?: Logger
 ): PrettierError[] => {
   const deprecationWarnings: PrettierError[] = [];
-  const checkedSymbols = new Set<ts.Symbol>();
+  const checkedLocations = new Set<string>(); // "filename:line:column" format
+  const suppressedLines = new Map<string, Set<number>>(); // filename -> line numbers
+  const usedSuppressions = new Set<string>(); // "filename:line" format
 
   // Helper function to get deprecation message from JSDoc tags
   const getDeprecationMessage = (symbol: ts.Symbol): string | undefined => {
@@ -170,6 +174,44 @@ const checkDeprecatedUsage = (
     if (sourceFile.fileName.includes('node_modules') || sourceFile.isDeclarationFile) {
       continue;
     }
+
+    // Check for suppression directives in comments
+    const sourceText = sourceFile.getFullText();
+    const processedComments = new Set<number>(); // Track processed comments by position
+    
+    // Process all comments in the file to find suppression directives
+    ts.forEachChild(sourceFile, function processNode(node: ts.Node): void {
+      const nodeStart = node.getFullStart();
+      const leadingComments = ts.getLeadingCommentRanges(sourceText, nodeStart) || [];
+      
+      for (const comment of leadingComments) {
+        // Skip if we've already processed this comment
+        if (processedComments.has(comment.pos)) {
+          continue;
+        }
+        processedComments.add(comment.pos);
+        
+        const commentText = sourceText.substring(comment.pos, comment.end);
+        // Check for @prettier-max-ignore-deprecated directive
+        const match = commentText.match(/@prettier-max-ignore-deprecated(?::?\s*(.*))?$/m);
+        if (match) {
+          const { line: commentLine } = sourceFile.getLineAndCharacterOfPosition(comment.pos);
+          const nextLine = commentLine + 2; // +1 for 0-based, +1 for next line
+          
+          if (!suppressedLines.has(sourceFile.fileName)) {
+            suppressedLines.set(sourceFile.fileName, new Set());
+          }
+          suppressedLines.get(sourceFile.fileName)!.add(nextLine);
+          
+          if (logger) {
+            const note = match[1] ? `: ${match[1].trim()}` : '';
+            logger.debug(`Found suppression directive at ${sourceFile.fileName}:${commentLine + 1}${note}`);
+          }
+        }
+      }
+      
+      ts.forEachChild(node, processNode);
+    });
 
     // Walk the AST to find deprecated usage
     const visit = (node: ts.Node): void => {
@@ -212,6 +254,24 @@ const checkDeprecatedUsage = (
 
       // Determine which symbol to check based on node type
       if (ts.isIdentifier(node)) {
+        // Skip if this is a declaration name (not a usage)
+        const parent = node.parent;
+        if (parent && (
+          (ts.isClassDeclaration(parent) && parent.name === node) ||
+          (ts.isInterfaceDeclaration(parent) && parent.name === node) ||
+          (ts.isFunctionDeclaration(parent) && parent.name === node) ||
+          (ts.isTypeAliasDeclaration(parent) && parent.name === node) ||
+          (ts.isEnumDeclaration(parent) && parent.name === node)
+        )) {
+          return; // Skip declarations
+        }
+        
+        // For variable declarations, only skip if it's not an initializer referencing a deprecated symbol
+        if (parent && ts.isVariableDeclaration(parent) && parent.name === node) {
+          // This is the variable name being declared, not a usage
+          return;
+        }
+        
         // Direct identifier reference
         symbolToCheck = checker.getSymbolAtLocation(node);
       } else if (ts.isPropertyAccessExpression(node)) {
@@ -230,60 +290,98 @@ const checkDeprecatedUsage = (
         nodeToReport = node.expression;
       } else if (ts.isImportSpecifier(node)) {
         // Import specifier - check the imported symbol
-        symbolToCheck = checker.getSymbolAtLocation(node.name);
+        const importedSymbol = checker.getSymbolAtLocation(node.name);
+        if (importedSymbol) {
+          // Get the actual symbol being imported
+          const aliasedSymbol = checker.getAliasedSymbol(importedSymbol);
+          symbolToCheck = aliasedSymbol || importedSymbol;
+        }
       } else if (ts.isExportSpecifier(node)) {
-        // Export specifier - check the exported symbol
-        symbolToCheck = checker.getSymbolAtLocation(node.name);
+        // Export specifier - check the exported symbol  
+        const exportedSymbol = checker.getSymbolAtLocation(node.name);
+        if (exportedSymbol) {
+          // Get the actual symbol being exported
+          const aliasedSymbol = checker.getAliasedSymbol(exportedSymbol);
+          symbolToCheck = aliasedSymbol || exportedSymbol;
+        }
       } else if (ts.isTypeReferenceNode(node)) {
         // Type reference - check the referenced type
         symbolToCheck = checker.getSymbolAtLocation(node.typeName);
         nodeToReport = node.typeName;
       }
 
-      if (symbolToCheck && !checkedSymbols.has(symbolToCheck)) {
-        checkedSymbols.add(symbolToCheck);
+      if (symbolToCheck) {
+        // Check if we've already processed this exact location
+        const sourceFile = nodeToReport.getSourceFile();
+        const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+          nodeToReport.getStart()
+        );
+        const locationKey = `${sourceFile.fileName}:${line + 1}:${character + 1}`;
+        
+        if (checkedLocations.has(locationKey)) {
+          return; // Skip if we've already checked this exact location
+        }
+        checkedLocations.add(locationKey);
 
         // Check if symbol is deprecated
         const deprecationMessage = getDeprecationMessage(symbolToCheck);
         if (deprecationMessage !== undefined) {
-          const sourceFile = nodeToReport.getSourceFile();
-          const { line, character } = sourceFile.getLineAndCharacterOfPosition(
-            nodeToReport.getStart()
-          );
+          const actualLine = line + 1;
 
-          deprecationWarnings.push({
-            file: sourceFile.fileName,
-            line: line + 1,
-            column: character + 1,
-            message: `PMAX001: '${symbolToCheck.getName()}' is deprecated${
-              deprecationMessage ? `: ${deprecationMessage}` : ''
-            }`,
-          });
+          // Check if this line is suppressed
+          const isSuppressed = suppressedLines.get(sourceFile.fileName)?.has(actualLine) || false;
+          
+          if (isSuppressed) {
+            // Mark this suppression as used
+            usedSuppressions.add(`${sourceFile.fileName}:${actualLine}`);
+            if (logger) {
+              logger.debug(`Suppressed deprecated warning for '${symbolToCheck.getName()}' at ${sourceFile.fileName}:${actualLine}`);
+            }
+          } else {
+            deprecationWarnings.push({
+              file: sourceFile.fileName,
+              line: actualLine,
+              column: character + 1,
+              message: `PMAX001: '${symbolToCheck.getName()}' is deprecated${
+                deprecationMessage ? `: ${deprecationMessage}` : ''
+              }`,
+            });
+          }
         }
 
         // Also check the value declaration for ModifierFlags.Deprecated
         if (symbolToCheck.valueDeclaration) {
           const modifierFlags = ts.getCombinedModifierFlags(symbolToCheck.valueDeclaration as ts.Declaration);
           if (modifierFlags & ts.ModifierFlags.Deprecated) {
-            const sourceFile = nodeToReport.getSourceFile();
-            const { line, character } = sourceFile.getLineAndCharacterOfPosition(
-              nodeToReport.getStart()
-            );
+            const actualLine = line + 1;
 
-            // Only add if not already added by JSDoc check
+            // Check if this line is suppressed
+            const isSuppressed = suppressedLines.get(sourceFile.fileName)?.has(actualLine) || false;
+            
+            // Only add if not already added by JSDoc check and not suppressed
             const alreadyAdded = deprecationWarnings.some(
               w => w.file === sourceFile.fileName && 
-                   w.line === line + 1 && 
+                   w.line === actualLine && 
                    w.column === character + 1
             );
+            
+            const alreadySuppressed = usedSuppressions.has(`${sourceFile.fileName}:${actualLine}`);
 
-            if (!alreadyAdded) {
-              deprecationWarnings.push({
-                file: sourceFile.fileName,
-                line: line + 1,
-                column: character + 1,
-                message: `PMAX001: '${symbolToCheck.getName()}' is deprecated`,
-              });
+            if (!alreadyAdded && !alreadySuppressed) {
+              if (isSuppressed) {
+                // Mark this suppression as used
+                usedSuppressions.add(`${sourceFile.fileName}:${actualLine}`);
+                if (logger) {
+                  logger.debug(`Suppressed deprecated warning for '${symbolToCheck.getName()}' at ${sourceFile.fileName}:${actualLine}`);
+                }
+              } else {
+                deprecationWarnings.push({
+                  file: sourceFile.fileName,
+                  line: actualLine,
+                  column: character + 1,
+                  message: `PMAX001: '${symbolToCheck.getName()}' is deprecated`,
+                });
+              }
             }
           }
         }
@@ -295,6 +393,25 @@ const checkDeprecatedUsage = (
     visit(sourceFile);
   }
 
+  // Check for unused suppression directives (PMAX002)
+  for (const [fileName, lines] of suppressedLines) {
+    for (const line of lines) {
+      const suppressionKey = `${fileName}:${line}`;
+      if (!usedSuppressions.has(suppressionKey)) {
+        // Find the directive comment position (it's on the line before)
+        const sourceFile = program.getSourceFile(fileName);
+        if (sourceFile) {
+          deprecationWarnings.push({
+            file: fileName,
+            line: line - 1, // Report on the directive line itself
+            column: 1,
+            message: `PMAX002: Unnecessary @prettier-max-ignore-deprecated directive - no deprecated usage found on the next line`,
+          });
+        }
+      }
+    }
+  }
+
   return deprecationWarnings;
 };
 
@@ -303,7 +420,8 @@ const checkDeprecatedUsage = (
  */
 export const runTypeScriptCheck = async (
   cwd: string,
-  detectDeprecated: boolean = true
+  detectDeprecated: boolean = true,
+  logger?: Logger
 ): Promise<FormatResult> => {
   const startTime = Date.now();
   const errors: PrettierError[] = [];
@@ -428,7 +546,7 @@ export const runTypeScriptCheck = async (
     if (detectDeprecated) {
       // Get TypeChecker only when needed for deprecated detection
       const checker = program.getTypeChecker();
-      const deprecationWarnings = checkDeprecatedUsage(program, checker);
+      const deprecationWarnings = checkDeprecatedUsage(program, checker, logger);
       
       // Add deprecation warnings to errors
       errors.push(...deprecationWarnings);

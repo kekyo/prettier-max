@@ -913,15 +913,16 @@ export { topLevelResult };
     // Count the number of PMAX001 occurrences
     const warningCount = (output.match(/PMAX001/g) || []).length;
     
-    // We expect exactly 5 warnings:
-    // 1. arrowFunc export (line 22) - non-deprecated context
-    // 2. OldAPI export (line 33) - non-deprecated context  
-    // 3. newMethod calling oldFunction (line 46)
-    // 4. newMethod calling deprecatedHelper (line 46)
-    // 5. oldMethod being called (line 54) - from normalFunction
+    // We expect exactly 6 warnings:
+    // 1. newMethod calling oldFunction (line 873)
+    // 2. newMethod calling deprecatedHelper (line 873)
+    // 3. normalFunction calling OldAPI constructor (line 880)
+    // 4. normalFunction calling oldFunction (line 881)
+    // 5. normalFunction calling oldMethod (line 881)
+    // 6. Top-level call to oldFunction (line 886)
     
     // But NOT from deprecated functions calling other deprecated functions
-    expect(warningCount).toBe(5);
+    expect(warningCount).toBe(6);
   }, 20000);
 
   it('should not warn about non-deprecated symbols', async () => {
