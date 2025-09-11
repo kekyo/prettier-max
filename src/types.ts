@@ -29,10 +29,16 @@ export interface ErrorReporter {
  */
 export interface PrettierMaxOptions {
   /**
-   * Path to prettier config `.prettierrc` file
-   * @default Will not derive config file in the prettier
+   * Generate .prettierrc and .prettierignore files if they don't exist
+   * @default true
    */
-  configPath?: string;
+  generatePrettierConfig?: boolean;
+
+  /**
+   * Fail the build if there are errors (formatting or TypeScript validation)
+   * @default true
+   */
+  failOnError?: boolean;
 
   /**
    * Format files on build start
@@ -47,29 +53,25 @@ export interface PrettierMaxOptions {
   typescript?: boolean;
 
   /**
-   * Fail the build if there are errors (formatting or TypeScript validation)
+   * Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag
+   * Disabling this can improve performance on large projects
    * @default true
    */
-  failOnError?: boolean;
+  detectDeprecated?: boolean;
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Path to prettier config `.prettierrc` file
+   * @default Will not derive config file in the prettier
+   */
+  configPath?: string;
 
   /**
    * Custom error reporter
    * @default Internal default reporter
    */
   reporter?: ErrorReporter;
-
-  /**
-   * Generate .prettierrc and .prettierignore files if they don't exist
-   * @default true
-   */
-  generatePrettierConfig?: boolean;
-
-  /**
-   * Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag
-   * Disabling this can improve performance on large projects
-   * @default true
-   */
-  detectDeprecated?: boolean;
 }
 
 /**
