@@ -67,7 +67,7 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
         );
       } else {
         logger.debug(`Detected prettier: ${prettierVersion}`);
-        logger.debug('Automatic formatting enabled on build');
+        logger.info('Automatic formatting enabled on build');
       }
 
       // Check if TypeScript is available when validation is enabled
@@ -79,9 +79,9 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
           );
         } else {
           logger.debug(`Detected TypeScript: ${typeScriptVersion}`);
-          logger.debug('TypeScript validation enabled on build');
+          logger.info('TypeScript validation enabled on build');
           if (detectDeprecated) {
-            logger.debug('Deprecated symbol detection enabled');
+            logger.info('Deprecated symbol detection enabled');
           } else {
             logger.debug(
               'Deprecated symbol detection disabled (performance mode)'

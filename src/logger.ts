@@ -4,6 +4,7 @@
 // https://github.com/kekyo/prettier-max/
 
 import type { LogLevel, Logger as ViteLogger } from 'vite';
+import createDebug from 'debug';
 
 /**
  * Logger interface
@@ -47,11 +48,14 @@ export const createViteLoggerAdapter = (
   logLevel: LogLevel,
   prefix: string
 ): Logger => {
+  // Create debug instance with vite:plugin:prettier-max namespace
+  const debug = createDebug('vite:plugin:prettier-max');
+
   return {
-    debug:
-      logLevel !== 'silent'
-        ? (msg: string) => viteLogger.info(`[${prefix}]: ${msg}`)
-        : () => {},
+    debug: (msg: string) => {
+      // Use debug module for debug level (enabled with vite --debug or DEBUG=vite:*)
+      debug(msg);
+    },
     info:
       logLevel !== 'silent'
         ? (msg: string) => viteLogger.info(`[${prefix}]: ${msg}`)

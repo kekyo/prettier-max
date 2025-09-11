@@ -68,9 +68,13 @@ prettier-maxに指定できるオプションは以下の通りです：
 ```typescript
 // プラグインオプション：
 prettierMax({
-  // Prettierの設定ファイルへのパス
-  // デフォルト: (Prettierの自動認識)
-  configPath: '.prettierrc',
+  // .prettierrcと.prettierignoreファイルが存在しない場合に生成
+  // デフォルト: true
+  generatePrettierConfig: true,
+
+  // PrettierフォーマッティングまたはTypeScriptエラーでビルドを失敗させる
+  // デフォルト: true
+  failOnError: true,
 
   // ビルド開始時にファイルをフォーマット
   // デフォルト: true
@@ -79,14 +83,6 @@ prettierMax({
   // フォーマッティング後にTypeScript検証を実行
   // デフォルト: true
   typescript: true,
-
-  // PrettierフォーマッティングまたはTypeScriptエラーでビルドを失敗させる
-  // デフォルト: true
-  failOnError: true,
-
-  // .prettierrcと.prettierignoreファイルが存在しない場合に生成
-  // デフォルト: true
-  generatePrettierConfig: true,
 
   // @deprecated JSDocタグでマークされた非推奨シンボルの使用を検出
   // デフォルト: true
@@ -168,6 +164,28 @@ olderSuperComponent();
 その場合は、ディレクティブを削除して下さい。
 
 非推奨の検出は、TypeScriptに詳細解析を行わせます。もし、検出速度が問題になる場合は、 `detectDeprecated: false` でこれを無効化できます。
+
+### ログ出力
+
+ログ出力の調整はViteのオプション指定に準じます:
+
+```bash
+# 最小限のログ（エラーのみ）
+vite build --logLevel error
+
+# デバッグ情報を含む詳細ログ
+vite build --debug
+
+# ログを完全に無効化
+vite build --logLevel silent
+```
+
+または`DEBUG`環境変数で、名前空間を指定してデバッグ情報の出力を行わせることが出来ます:
+
+```bash
+# prettier-maxのデバッグ
+DEBUG=vite:plugin:prettier-max vite build
+```
 
 ---
 

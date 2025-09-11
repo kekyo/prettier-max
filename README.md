@@ -68,9 +68,13 @@ The options you can specify for prettier-max are as follows:
 ```typescript
 // The plugin options:
 prettierMax({
-  // Path to Prettier config file
-  // Default: uses Prettier's config resolution
-  configPath: '.prettierrc',
+  // Generate .prettierrc and .prettierignore files if they don't exist
+  // Default: true
+  generatePrettierConfig: true,
+
+  // Fail the build on Prettier formatting or TypeScript errors
+  // Default: true
+  failOnError: true,
 
   // Format files on build start
   // Default: true
@@ -79,14 +83,6 @@ prettierMax({
   // Run TypeScript validation after formatting
   // Default: true
   typescript: true,
-
-  // Fail the build on Prettier formatting or TypeScript errors
-  // Default: true
-  failOnError: true,
-
-  // Generate .prettierrc and .prettierignore files if they don't exist
-  // Default: true
-  generatePrettierConfig: true,
 
   // Detect usage of deprecated symbols marked with @deprecated JSDoc tag
   // Default: true
@@ -170,6 +166,28 @@ In that case, please remove the unnecessary directive.
 
 Detecting deprecation causes TypeScript to perform detailed analysis.
 If detection performance becomes an issue, you can disable it by setting `detectDeprecated: false`.
+
+### Log output
+
+Log output adjustments follow Vite's option specifications:
+
+```bash
+# Minimal logs (errors only)
+vite build --logLevel error
+
+# Detailed logs including debug information
+vite build --debug
+
+# Completely disable logs
+vite build --logLevel silent
+```
+
+You can also use the `DEBUG` environment variable to output debug information by specifying namespaces:
+
+```bash
+# prettier-max debugging
+DEBUG=vite:plugin:prettier-max vite build
+```
 
 ---
 
