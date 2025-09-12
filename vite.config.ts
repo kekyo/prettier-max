@@ -38,6 +38,7 @@ export default defineConfig({
         'child_process',
         'fs/promises',
         'fs',
+        'url',
         'typescript',
         'debug',
       ],
