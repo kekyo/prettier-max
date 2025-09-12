@@ -5,6 +5,7 @@
 
 import { spawn } from 'child_process';
 import { join, dirname, sep } from 'path';
+import { fileURLToPath } from 'url';
 import { readFileSync } from 'fs';
 type TS = typeof import('typescript');
 import type { FormatResult, PrettierError } from './types.js';
@@ -156,7 +157,7 @@ const resolvePrettierBin = (rootDir: string): string | undefined => {
   const p1 = tryResolvePrettierFrom(rootDir);
   if (p1) return p1;
   // Then try resolve relative to this package (plugin's own dep)
-  const p2 = tryResolvePrettierFrom(__dirname);
+  const p2 = tryResolvePrettierFrom(getThisModuleDir());
   if (p2) return p2;
   return undefined;
 };
@@ -183,6 +184,15 @@ const tryResolvePrettierFrom = (basePath: string): string | undefined => {
     return binAbs;
   } catch {
     return undefined;
+  }
+};
+
+const getThisModuleDir = (): string => {
+  try {
+    return dirname(fileURLToPath(import.meta.url));
+  } catch {
+    // Fallback for environments where import.meta.url is not available
+    return typeof __dirname !== 'undefined' ? __dirname : process.cwd();
   }
 };
 
