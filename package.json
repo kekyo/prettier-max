@@ -35,6 +35,9 @@
     "dump": "npm run build && screw-up dump",
     "pack": "npm run build && screw-up pack --pack-destination artifacts/"
   },
+  "dependencies": {
+    "prettier": ">=3.6.0"
+  },
   "peerDependencies": {
     "prettier": ">=3.6.0",
     "typescript": ">=5.0.0",
@@ -42,11 +45,11 @@
     "debug": ">=4.4.0"
   },
   "devDependencies": {
-    "@types/debug": "^4.1.12",
+    "@types/debug": ">=4.1.0",
     "@types/fs-extra": ">=11.0.0",
     "@types/node": ">=20.0.0",
     "dayjs": ">=1.11.0",
-    "screw-up": ">=1.3.0",
+    "screw-up": ">=1.7.0",
     "vite-plugin-dts": ">=3.0.0",
     "vitest": ">=1.0.0"
   }

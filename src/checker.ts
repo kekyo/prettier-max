@@ -4,7 +4,8 @@
 // https://github.com/kekyo/prettier-max/
 
 import { spawn } from 'child_process';
-import { join, dirname } from 'path';
+import { join, dirname, sep } from 'path';
+import { readFileSync } from 'fs';
 import * as ts from 'typescript';
 import type { FormatResult, PrettierError } from './types.js';
 import type { Logger } from './logger.js';
@@ -29,10 +30,19 @@ export const runPrettierFormatProject = async (
       args.push('--config', configPath);
     }
 
-    const prettierProcess = spawn('npx', ['prettier', ...args], {
-      cwd: rootDir,
-      shell: process.platform === 'win32',
-    });
+    const resolvedBin = resolvePrettierBin(rootDir);
+
+    const prettierProcess =
+      resolvedBin !== undefined
+        ? // Execute Prettier CLI via Node to ensure cross-platform
+          spawn(process.execPath, [resolvedBin, ...args], {
+            cwd: rootDir,
+          })
+        : // Fallback to npx if resolution failed
+          spawn('npx', ['prettier', ...args], {
+            cwd: rootDir,
+            shell: process.platform === 'win32',
+          });
 
     let stdout = '';
     let stderr = '';
@@ -109,24 +119,71 @@ export const runPrettierFormatProject = async (
  */
 export const getPrettierVersion = async (): Promise<string | undefined> => {
   return new Promise((resolve) => {
+    const resolvedBin = resolvePrettierBin(process.cwd());
+    if (resolvedBin) {
+      let stdout: string = '';
+      const cp = spawn(process.execPath, [resolvedBin, '--version']);
+      cp.stdout.on('data', (data) => (stdout += data.toString()));
+      cp.on('close', (code) => {
+        resolve(code === 0 ? stdout.trim() : undefined);
+      });
+      cp.on('error', () => resolve(undefined));
+      return;
+    }
+    // Final fallback: use npx
     const checkProcess = spawn('npx', ['prettier', '--version'], {
       shell: process.platform === 'win32',
     });
-
     let stdout: string = '';
-
     checkProcess.stdout.on('data', (data) => {
       stdout += data.toString();
     });
-
     checkProcess.on('close', (code) => {
       resolve(code === 0 ? stdout.trim() : undefined);
     });
-
     checkProcess.on('error', () => {
       resolve(undefined);
     });
   });
+};
+
+/**
+ * Resolve Prettier CLI bin path.
+ * Priority: project local -> hoisted/monorepo -> plugin's own dependency.
+ */
+const resolvePrettierBin = (rootDir: string): string | undefined => {
+  // Try resolve from project root first
+  const p1 = tryResolvePrettierFrom(rootDir);
+  if (p1) return p1;
+  // Then try resolve relative to this package (plugin's own dep)
+  const p2 = tryResolvePrettierFrom(__dirname);
+  if (p2) return p2;
+  return undefined;
+};
+
+const tryResolvePrettierFrom = (basePath: string): string | undefined => {
+  try {
+    const pkgPath = require.resolve('prettier/package.json', {
+      paths: [basePath],
+    });
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as {
+      bin?: string | { [k: string]: string };
+    };
+    let binRel: string | undefined;
+    if (typeof pkg.bin === 'string') {
+      binRel = pkg.bin;
+    } else if (pkg.bin && typeof pkg.bin === 'object') {
+      binRel = pkg.bin['prettier'];
+    }
+    // Fallback to known path for Prettier v3
+    if (!binRel) {
+      binRel = ['bin', 'prettier.cjs'].join(sep);
+    }
+    const binAbs = join(dirname(pkgPath), binRel);
+    return binAbs;
+  } catch {
+    return undefined;
+  }
 };
 
 /**
