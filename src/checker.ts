@@ -303,6 +303,26 @@ const checkDeprecatedUsage = (
 
     // Walk the AST to find deprecated usage
     const visit = (node: import('typescript').Node): void => {
+      // Helper: detect if this node has a JSDoc @deprecated tag in leading comments
+      const hasDeprecatedLeadingJsDoc = (
+        n: import('typescript').Node
+      ): boolean => {
+        try {
+          const start = n.getFullStart();
+          const comments = ts.getLeadingCommentRanges(sourceText, start) || [];
+          for (const c of comments) {
+            // Only treat block JSDoc style comments (/** ... */) as candidates
+            const text = sourceText.substring(c.pos, c.end);
+            if (text.startsWith('/**') && /@deprecated\b/.test(text)) {
+              return true;
+            }
+          }
+        } catch {
+          // ignore
+        }
+        return false;
+      };
+
       // Check if this is a function-like node that is deprecated
       // If so, skip checking its body
       if (
@@ -337,6 +357,29 @@ const checkDeprecatedUsage = (
 
         // If this function is deprecated, skip checking its body
         if (funcSymbol && getDeprecationMessage(funcSymbol) !== undefined) {
+          return; // Early return - don't check descendants
+        }
+      }
+
+      // If this is an export declaration and it has a JSDoc @deprecated,
+      // skip checking within this export statement (re-exports of deprecated symbols are ignored)
+      if (ts.isExportDeclaration(node)) {
+        // Check JSDoc on the export declaration itself
+        // Use leading JSDoc comment because export declarations typically don't have symbols
+        if (hasDeprecatedLeadingJsDoc(node)) {
+          return; // Don't check descendants (export specifiers)
+        }
+      }
+
+      // If this is a type alias declaration and it's marked as @deprecated,
+      // skip checking inside its type definition (e.g., export type Foo = OldType)
+      if (ts.isTypeAliasDeclaration(node) && node.name) {
+        const typeSymbol = checker.getSymbolAtLocation(node.name);
+        if (typeSymbol && getDeprecationMessage(typeSymbol) !== undefined) {
+          return; // Early return - don't check descendants
+        }
+        // Also honor leading JSDoc on the declaration (as a fallback)
+        if (hasDeprecatedLeadingJsDoc(node)) {
           return; // Early return - don't check descendants
         }
       }
