@@ -23,7 +23,7 @@ For those who find basic auto-formatting and TypeScript type checking sufficient
 Key features:
 
 - Automatic Prettier formatting on build start
-- TypeScript type checking after formatting, with JSDoc deprecated (`@deprecated`) detection
+- When using TypeScript, post-formatting TypeScript type checking. Additionally, JSDoc deprecation (`@deprecated`) can also be checked.
 - All fine-tuning is specified in `.prettierrc`, `.prettierignore` and `tsconfig.json`, ensuring consistency
 - This is not doing anything unnecessary
 
@@ -58,6 +58,12 @@ The build works as follows:
 2. If formatting succeeds and TypeScript is enabled (by default), it runs type checking and detecting deprecation
 3. Errors are reported to the console with file paths and line numbers
 4. If `failOnError` is `true` (by default), the build stops on any errors
+
+### TypeScript availability
+
+- TypeScript validation runs only when TypeScript is available in your project.
+- If TypeScript is not installed, the validation step is skipped and a warning is logged.
+- You can also explicitly disable it with the `typescript: false` option.
 
 ## Usage
 
@@ -188,6 +194,12 @@ You can also use the `DEBUG` environment variable to output debug information by
 # prettier-max debugging
 DEBUG=vite:plugin:prettier-max vite build
 ```
+
+---
+
+## Limitations
+
+If you are not using TypeScript, you cannot perform JSDoc deprecation checks.
 
 ---
 

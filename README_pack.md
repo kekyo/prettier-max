@@ -20,7 +20,7 @@ For those who find basic auto-formatting and TypeScript type checking sufficient
 Key features:
 
 - Automatic Prettier formatting on build start
-- TypeScript type checking after formatting, with JSDoc deprecated (`@deprecated`) detection
+- When using TypeScript, post-formatting TypeScript type checking. Additionally, JSDoc deprecation (`@deprecated`) can also be checked.
 - All fine-tuning is specified in `.prettierrc` and `tsconfig.json`, ensuring high consistency
 - This is not doing anything unnecessary
 
@@ -56,7 +56,13 @@ The build works as follows:
 3. Errors are reported to the console with file paths and line numbers
 4. If `failOnError` is `true` (by default), the build stops on any errors
 
-[See repository document.](https://github.com/kekyo/prettier-max)
+### TypeScript availability
+
+- TypeScript validation runs only when TypeScript is available in your project.
+- If TypeScript is not installed, the validation step is skipped and a warning is logged.
+- You can also explicitly disable it with the `typescript: false` option.
+
+Other features, [see repository document.](https://github.com/kekyo/prettier-max)
 
 ---
 

@@ -23,7 +23,7 @@ ESLintは複雑で、しばしば独自の設定エラーを起こします。
 主な機能：
 
 - ビルド開始時に、自動的にPrettierでフォーマッティング
-- フォーマッティング後のTypeScript型チェック。更にJSDocの非推奨(`@deprecated`)もチェック可能
+- TypeScriptを使用している場合は、フォーマッティング後のTypeScript型チェック。更にJSDocの非推奨(`@deprecated`)もチェック可能
 - すべての設定調整は、`.prettierrc`、`.prettierignore`、`tsconfig.json`で指定され、一貫性を確保
 - 余計なことは一切行いません
 
@@ -58,6 +58,12 @@ export default defineConfig({
 2. フォーマッティングが成功し、TypeScriptが有効（デフォルト）な場合、型チェックと非推奨検出を実行
 3. エラーはファイルパスと行番号と共にコンソールに報告される
 4. `failOnError` が `true` （デフォルト）の場合、エラーがあるとビルドが停止
+
+### TypeScript の有無について
+
+- TypeScript 検証は、プロジェクトに TypeScript が導入されている場合にのみ実行されます。
+- TypeScript が未インストールの場合、検証はスキップされ、警告が表示されます。
+- 明示的に無効化したい場合は、オプションで `typescript: false` を指定できます。
 
 ## 使用方法
 
@@ -186,6 +192,12 @@ vite build --logLevel silent
 # prettier-maxのデバッグ
 DEBUG=vite:plugin:prettier-max vite build
 ```
+
+---
+
+## 制限
+
+TypeScriptを使用していない場合は、JSDocの非推奨チェックを行うことは出来ません。
 
 ---
 
