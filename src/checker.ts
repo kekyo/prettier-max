@@ -6,7 +6,7 @@
 import { spawn } from 'child_process';
 import { join, dirname, sep } from 'path';
 import { readFileSync } from 'fs';
-import * as ts from 'typescript';
+type TS = typeof import('typescript');
 import type { FormatResult, PrettierError } from './types.js';
 import type { Logger } from './logger.js';
 
@@ -190,9 +190,15 @@ const tryResolvePrettierFrom = (basePath: string): string | undefined => {
  * Check if TypeScript is available and get its version
  */
 export const getTypeScriptVersion = async (): Promise<string | undefined> => {
+  const ts = await loadTypeScript();
+  return ts?.version;
+};
+
+// Dynamically load TypeScript module if available
+const loadTypeScript = async (): Promise<TS | undefined> => {
   try {
-    // Return the version from TypeScript API directly
-    return ts.version;
+    const mod: any = await import('typescript');
+    return (mod?.default ?? mod) as TS;
   } catch {
     return undefined;
   }
@@ -202,8 +208,9 @@ export const getTypeScriptVersion = async (): Promise<string | undefined> => {
  * Check for deprecated symbol usage in TypeScript code
  */
 const checkDeprecatedUsage = (
-  program: ts.Program,
-  checker: ts.TypeChecker,
+  ts: typeof import('typescript'),
+  program: import('typescript').Program,
+  checker: import('typescript').TypeChecker,
   logger?: Logger
 ): PrettierError[] => {
   const deprecationWarnings: PrettierError[] = [];
@@ -212,7 +219,9 @@ const checkDeprecatedUsage = (
   const usedSuppressions = new Set<string>(); // "filename:line" format
 
   // Helper function to get deprecation message from JSDoc tags
-  const getDeprecationMessage = (symbol: ts.Symbol): string | undefined => {
+  const getDeprecationMessage = (
+    symbol: import('typescript').Symbol
+  ): string | undefined => {
     try {
       const jsdocTags = symbol.getJsDocTags(checker);
       const deprecatedTag = jsdocTags.find((tag) => tag.name === 'deprecated');
@@ -240,47 +249,50 @@ const checkDeprecatedUsage = (
     const processedComments = new Set<number>(); // Track processed comments by position
 
     // Process all comments in the file to find suppression directives
-    ts.forEachChild(sourceFile, function processNode(node: ts.Node): void {
-      const nodeStart = node.getFullStart();
-      const leadingComments =
-        ts.getLeadingCommentRanges(sourceText, nodeStart) || [];
+    ts.forEachChild(
+      sourceFile,
+      function processNode(node: import('typescript').Node): void {
+        const nodeStart = node.getFullStart();
+        const leadingComments =
+          ts.getLeadingCommentRanges(sourceText, nodeStart) || [];
 
-      for (const comment of leadingComments) {
-        // Skip if we've already processed this comment
-        if (processedComments.has(comment.pos)) {
-          continue;
-        }
-        processedComments.add(comment.pos);
-
-        const commentText = sourceText.substring(comment.pos, comment.end);
-        // Check for `@prettier-max-ignore-deprecated` directive
-        const match = commentText.match(
-          /^\/\/\s*@prettier-max-ignore-deprecated(?::?\s*(.*))?$/m
-        );
-        if (match) {
-          const { line: commentLine } =
-            sourceFile.getLineAndCharacterOfPosition(comment.pos);
-          const nextLine = commentLine + 2; // +1 for 0-based, +1 for next line
-
-          if (!suppressedLines.has(sourceFile.fileName)) {
-            suppressedLines.set(sourceFile.fileName, new Set());
+        for (const comment of leadingComments) {
+          // Skip if we've already processed this comment
+          if (processedComments.has(comment.pos)) {
+            continue;
           }
-          suppressedLines.get(sourceFile.fileName)!.add(nextLine);
+          processedComments.add(comment.pos);
 
-          if (logger) {
-            const note = match[1] ? `: ${match[1].trim()}` : '';
-            logger.debug(
-              `Found suppression directive at ${sourceFile.fileName}:${commentLine + 1}${note}`
-            );
+          const commentText = sourceText.substring(comment.pos, comment.end);
+          // Check for `@prettier-max-ignore-deprecated` directive
+          const match = commentText.match(
+            /^\/\/\s*@prettier-max-ignore-deprecated(?::?\s*(.*))?$/m
+          );
+          if (match) {
+            const { line: commentLine } =
+              sourceFile.getLineAndCharacterOfPosition(comment.pos);
+            const nextLine = commentLine + 2; // +1 for 0-based, +1 for next line
+
+            if (!suppressedLines.has(sourceFile.fileName)) {
+              suppressedLines.set(sourceFile.fileName, new Set());
+            }
+            suppressedLines.get(sourceFile.fileName)!.add(nextLine);
+
+            if (logger) {
+              const note = match[1] ? `: ${match[1].trim()}` : '';
+              logger.debug(
+                `Found suppression directive at ${sourceFile.fileName}:${commentLine + 1}${note}`
+              );
+            }
           }
         }
+
+        ts.forEachChild(node, processNode);
       }
-
-      ts.forEachChild(node, processNode);
-    });
+    );
 
     // Walk the AST to find deprecated usage
-    const visit = (node: ts.Node): void => {
+    const visit = (node: import('typescript').Node): void => {
       // Check if this is a function-like node that is deprecated
       // If so, skip checking its body
       if (
@@ -290,7 +302,7 @@ const checkDeprecatedUsage = (
         ts.isMethodDeclaration(node) ||
         ts.isConstructorDeclaration(node)
       ) {
-        let funcSymbol: ts.Symbol | undefined;
+        let funcSymbol: import('typescript').Symbol | undefined;
 
         // Get symbol based on node type
         if (ts.isFunctionDeclaration(node) && node.name) {
@@ -319,7 +331,7 @@ const checkDeprecatedUsage = (
         }
       }
 
-      let symbolToCheck: ts.Symbol | undefined;
+      let symbolToCheck: import('typescript').Symbol | undefined;
       let nodeToReport = node;
 
       // Determine which symbol to check based on node type
@@ -440,7 +452,7 @@ const checkDeprecatedUsage = (
         // Also check the value declaration for ModifierFlags.Deprecated
         if (symbolToCheck.valueDeclaration) {
           const modifierFlags = ts.getCombinedModifierFlags(
-            symbolToCheck.valueDeclaration as ts.Declaration
+            symbolToCheck.valueDeclaration as import('typescript').Declaration
           );
           if (modifierFlags & ts.ModifierFlags.Deprecated) {
             const actualLine = line + 1;
@@ -524,6 +536,16 @@ export const runTypeScriptCheck = async (
   const errors: PrettierError[] = [];
 
   try {
+    const ts = await loadTypeScript();
+    if (!ts) {
+      // TypeScript is not available; skip validation gracefully
+      return {
+        success: true,
+        errors: [],
+        formattedFiles: [],
+        duration: Date.now() - startTime,
+      };
+    }
     // Find tsconfig.json
     const configFileName = ts.findConfigFile(
       cwd,
@@ -606,7 +628,7 @@ export const runTypeScriptCheck = async (
 
     // Format diagnostics to match tsc output format
     if (allDiagnostics.length > 0) {
-      const formatHost: ts.FormatDiagnosticsHost = {
+      const formatHost: import('typescript').FormatDiagnosticsHost = {
         getCurrentDirectory: () => cwd,
         getCanonicalFileName: (fileName) => fileName,
         getNewLine: () => ts.sys.newLine,
@@ -644,6 +666,7 @@ export const runTypeScriptCheck = async (
       // Get TypeChecker only when needed for deprecated detection
       const checker = program.getTypeChecker();
       const deprecationWarnings = checkDeprecatedUsage(
+        ts,
         program,
         checker,
         logger

@@ -44,6 +44,17 @@
     "vite": ">=5.0.0",
     "debug": ">=4.4.0"
   },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    },
+    "prettier": {
+      "optional": true
+    },
+    "debug": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/debug": ">=4.1.0",
     "@types/fs-extra": ">=11.0.0",
