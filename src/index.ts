@@ -60,7 +60,7 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
       }
 
       // Check if prettier is available
-      const prettierVersion = await getPrettierVersion();
+      const prettierVersion = await getPrettierVersion(rootDir);
       if (!prettierVersion) {
         logger.error(
           '\x1b[31m✗\x1b[0m Prettier is not available. Please install prettier as a dependency.'
