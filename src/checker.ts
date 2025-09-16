@@ -118,9 +118,14 @@ export const runPrettierFormatProject = async (
 /**
  * Check if prettier is available
  */
-export const getPrettierVersion = async (): Promise<string | undefined> => {
+export const getPrettierVersion = async (
+  preferredRoot?: string
+): Promise<string | undefined> => {
   return new Promise((resolve) => {
-    const resolvedBin = resolvePrettierBin(process.cwd());
+    const resolvedBin = resolvePrettierBin(
+      preferredRoot ?? process.cwd(),
+      preferredRoot ? [process.cwd()] : []
+    );
     if (resolvedBin) {
       let stdout: string = '';
       const cp = spawn(process.execPath, [resolvedBin, '--version']);
@@ -152,13 +157,24 @@ export const getPrettierVersion = async (): Promise<string | undefined> => {
  * Resolve Prettier CLI bin path.
  * Priority: project local -> hoisted/monorepo -> plugin's own dependency.
  */
-const resolvePrettierBin = (rootDir: string): string | undefined => {
-  // Try resolve from project root first
-  const p1 = tryResolvePrettierFrom(rootDir);
-  if (p1) return p1;
+const resolvePrettierBin = (
+  rootDir: string,
+  additionalRoots: string[] = []
+): string | undefined => {
+  const candidates = [rootDir, ...additionalRoots];
+  for (const candidate of candidates) {
+    const resolved = tryResolvePrettierFrom(candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
   // Then try resolve relative to this package (plugin's own dep)
-  const p2 = tryResolvePrettierFrom(getThisModuleDir());
-  if (p2) return p2;
+  const pluginResolved = tryResolvePrettierFrom(getThisModuleDir());
+  if (pluginResolved) {
+    return pluginResolved;
+  }
+
   return undefined;
 };
 
