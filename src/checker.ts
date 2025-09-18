@@ -4,9 +4,10 @@
 // https://github.com/kekyo/prettier-max/
 
 import { spawn } from 'child_process';
-import { join, dirname, sep } from 'path';
+import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync } from 'fs';
+import { existsSync } from 'fs';
+import { readFile } from 'fs/promises';
 type TS = typeof import('typescript');
 import type { FormatResult, PrettierError } from './types.js';
 import type { Logger } from './logger.js';
@@ -20,7 +21,7 @@ export const runPrettierFormatProject = async (
 ): Promise<FormatResult> => {
   const startTime = Date.now();
 
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
     const errors: PrettierError[] = [];
     const formattedFiles: string[] = [];
 
@@ -31,19 +32,28 @@ export const runPrettierFormatProject = async (
       args.push('--config', configPath);
     }
 
-    const resolvedBin = resolvePrettierBin(rootDir);
+    const resolvedBin = await resolvePrettierBin(rootDir);
 
-    const prettierProcess =
-      resolvedBin !== undefined
-        ? // Execute Prettier CLI via Node to ensure cross-platform
-          spawn(process.execPath, [resolvedBin, ...args], {
-            cwd: rootDir,
-          })
-        : // Fallback to npx if resolution failed
-          spawn('npx', ['prettier', ...args], {
-            cwd: rootDir,
-            shell: process.platform === 'win32',
-          });
+    if (!resolvedBin) {
+      const duration = Date.now() - startTime;
+      errors.push({
+        file: rootDir,
+        message:
+          'Unable to locate a Prettier CLI. Install Prettier in the project or rely on the bundled dependency.',
+      });
+      resolve({
+        success: false,
+        errors,
+        formattedFiles,
+        duration,
+      });
+      return;
+    }
+
+    // Execute Prettier CLI via Node to ensure cross-platform
+    const prettierProcess = spawn(process.execPath, [resolvedBin, ...args], {
+      cwd: rootDir,
+    });
 
     let stdout = '';
     let stderr = '';
@@ -121,86 +131,64 @@ export const runPrettierFormatProject = async (
 export const getPrettierVersion = async (
   preferredRoot?: string
 ): Promise<string | undefined> => {
-  return new Promise((resolve) => {
-    const resolvedBin = resolvePrettierBin(
-      preferredRoot ?? process.cwd(),
-      preferredRoot ? [process.cwd()] : []
-    );
-    if (resolvedBin) {
-      let stdout: string = '';
-      const cp = spawn(process.execPath, [resolvedBin, '--version']);
-      cp.stdout.on('data', (data) => (stdout += data.toString()));
-      cp.on('close', (code) => {
-        resolve(code === 0 ? stdout.trim() : undefined);
-      });
-      cp.on('error', () => resolve(undefined));
-      return;
-    }
-    // Final fallback: use npx
-    const checkProcess = spawn('npx', ['prettier', '--version'], {
-      shell: process.platform === 'win32',
-    });
-    let stdout: string = '';
-    checkProcess.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    checkProcess.on('close', (code) => {
-      resolve(code === 0 ? stdout.trim() : undefined);
-    });
-    checkProcess.on('error', () => {
-      resolve(undefined);
-    });
-  });
+  const pkg = await resolvePrettierPackageJson(
+    preferredRoot ?? process.cwd(),
+    preferredRoot ? [process.cwd()] : []
+  );
+  return pkg?.version;
 };
 
 /**
  * Resolve Prettier CLI bin path.
  * Priority: project local -> hoisted/monorepo -> plugin's own dependency.
  */
-const resolvePrettierBin = (
+const resolvePrettierBin = async (
   rootDir: string,
   additionalRoots: string[] = []
-): string | undefined => {
-  const candidates = [rootDir, ...additionalRoots];
-  for (const candidate of candidates) {
-    const resolved = tryResolvePrettierFrom(candidate);
-    if (resolved) {
-      return resolved;
-    }
-  }
-
-  // Then try resolve relative to this package (plugin's own dep)
-  const pluginResolved = tryResolvePrettierFrom(getThisModuleDir());
-  if (pluginResolved) {
-    return pluginResolved;
-  }
-
-  return undefined;
-};
-
-const tryResolvePrettierFrom = (basePath: string): string | undefined => {
-  try {
-    const pkgPath = require.resolve('prettier/package.json', {
-      paths: [basePath],
-    });
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as {
-      bin?: string | { [k: string]: string };
-    };
-    let binRel: string | undefined;
-    if (typeof pkg.bin === 'string') {
-      binRel = pkg.bin;
-    } else if (pkg.bin && typeof pkg.bin === 'object') {
-      binRel = pkg.bin['prettier'];
-    }
-    // Fallback to known path for Prettier v3
-    if (!binRel) {
-      binRel = ['bin', 'prettier.cjs'].join(sep);
-    }
-    const binAbs = join(dirname(pkgPath), binRel);
-    return binAbs;
-  } catch {
+): Promise<string | undefined> => {
+  const resolved = await resolvePrettierPackage(rootDir, additionalRoots);
+  if (!resolved) {
     return undefined;
   }
+
+  const { bin } = resolved.pkg;
+  let binRel: string | undefined;
+  if (typeof bin === 'string') {
+    binRel = bin;
+  } else if (bin && typeof bin === 'object') {
+    binRel = bin['prettier'];
+  }
+
+  if (!binRel) {
+    binRel = join('bin', 'prettier.cjs');
+  }
+
+  return join(resolved.pkgDir, binRel);
+};
+
+const resolvePrettierPackageJson = async (
+  rootDir: string,
+  additionalRoots: string[] = []
+): Promise<{ version: string } | undefined> => {
+  const resolved = await resolvePrettierPackage(rootDir, additionalRoots);
+  if (!resolved) {
+    return undefined;
+  }
+  const { version } = resolved.pkg;
+  return version ? { version } : undefined;
+};
+
+const buildPrettierSearchPaths = (
+  rootDir: string,
+  additionalRoots: string[] = []
+): string[] => {
+  const paths = [
+    rootDir,
+    ...additionalRoots,
+    process.cwd(),
+    getThisModuleDir(),
+  ];
+  return Array.from(new Set(paths));
 };
 
 const getThisModuleDir = (): string => {
@@ -210,6 +198,69 @@ const getThisModuleDir = (): string => {
     // Fallback for environments where import.meta.url is not available
     return typeof __dirname !== 'undefined' ? __dirname : process.cwd();
   }
+};
+
+type PrettierPackageInfo = {
+  pkgPath: string;
+  pkgDir: string;
+  pkg: {
+    version?: string;
+    bin?: string | { [name: string]: string };
+  };
+};
+
+const resolvePrettierPackage = async (
+  rootDir: string,
+  additionalRoots: string[]
+): Promise<PrettierPackageInfo | undefined> => {
+  const pkgPath = findPrettierPackageJsonPath(rootDir, additionalRoots);
+  if (!pkgPath) {
+    return undefined;
+  }
+
+  const pkgDir = dirname(pkgPath);
+  const pkg = JSON.parse(
+    await readFile(pkgPath, 'utf-8')
+  ) as PrettierPackageInfo['pkg'];
+  return { pkgPath, pkgDir, pkg };
+};
+
+const findPrettierPackageJsonPath = (
+  rootDir: string,
+  additionalRoots: string[]
+): string | undefined => {
+  const searchRoots = buildPrettierSearchPaths(rootDir, additionalRoots);
+  const visited = new Set<string>();
+
+  for (const root of searchRoots) {
+    let current = resolve(root);
+
+    while (true) {
+      if (visited.has(current)) {
+        break;
+      }
+      visited.add(current);
+
+      const candidate = join(
+        current,
+        'node_modules',
+        'prettier',
+        'package.json'
+      );
+
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+
+      const parent = dirname(current);
+      if (parent === current) {
+        break;
+      }
+      current = parent;
+    }
+  }
+
+  return undefined;
 };
 
 /**
