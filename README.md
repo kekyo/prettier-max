@@ -59,6 +59,12 @@ The build works as follows:
 3. Errors are reported to the console with file paths and line numbers
 4. If `failOnError` is `true` (by default), the build stops on any errors
 
+### Prettier resolution
+
+- The plugin always prefers the Prettier installation that lives closest to your Vite project root (monorepo hoists are respected).
+- If no project-level copy is available, it falls back to the `prettier` dependency bundled with prettier-max.
+- This lets workspace owners pin Prettier versions explicitly, while still keeping a reliable fallback for standalone usage.
+
 ### TypeScript availability
 
 - TypeScript validation runs only when TypeScript is available in your project.
