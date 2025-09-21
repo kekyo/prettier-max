@@ -23,8 +23,9 @@ describe('Deprecated detection suppression directive', () => {
             strict: true,
             esModuleInterop: true,
             forceConsistentCasingInFileNames: true,
+            jsx: 'preserve',
           },
-          include: ['*.ts'],
+          include: ['*.ts', '*.tsx', '*.d.ts'],
         },
         null,
         2
@@ -214,6 +215,74 @@ function test() {
 
     expect(pmax001Errors[0].line).toBe(29); // Unsuppressed usage
     expect(pmax002Errors[0].line).toBe(26); // Unused directive
+  });
+
+  it('should respect suppressions and deprecated scopes for JSX usages', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-suppression',
+      'jsx-suppressions'
+    );
+    await fs.mkdir(testDir, { recursive: true });
+
+    const dtsFile = join(testDir, 'jsx.d.ts');
+    await fs.writeFile(
+      dtsFile,
+      `declare namespace JSX {
+  interface IntrinsicElements {
+    div: any;
+  }
+}
+`
+    );
+
+    const testFile = join(testDir, 'test.tsx');
+    await fs.writeFile(
+      testFile,
+      `interface FancyProps {
+  value: number;
+  /** @deprecated Use 'replacement' prop instead */
+  legacy?: string;
+}
+
+export const Fancy = (props: FancyProps) => <div>{props.value}</div>;
+
+/**
+ * @deprecated Legacy renderer
+ */
+export function LegacyRenderer() {
+  return <Fancy legacy="old" value={1} />;
+}
+
+export function NormalRenderer() {
+  // @prettier-max-ignore-deprecated: migrating prop usage
+  const suppressed = <Fancy legacy="old" value={2} />;
+
+  const unsuppressed = <Fancy legacy="old" value={3} />;
+
+  return (
+    <div>
+      {suppressed}
+      {unsuppressed}
+      <Fancy value={4} />
+    </div>
+  );
+}
+`
+    );
+
+    await createTsConfigFile(testDir);
+
+    const result = await runTypeScriptCheck(testDir, true);
+
+    // Only the unsuppressed JSX usage should report PMAX001
+    const pmax001Errors = result.errors.filter((e) =>
+      e.message.includes('PMAX001')
+    );
+
+    expect(pmax001Errors).toHaveLength(1);
+    expect(pmax001Errors[0].message).toContain("'legacy' is deprecated");
+    expect(pmax001Errors[0].message).toContain('replacement');
+    expect(pmax001Errors[0].line).toBe(20);
   });
 
   it('should not trigger PMAX002 for non-directive comments mentioning the directive', async () => {
