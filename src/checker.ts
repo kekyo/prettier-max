@@ -370,6 +370,205 @@ const checkDeprecatedUsage = (
 
     // Walk the AST to find deprecated usage
     const visit = (node: import('typescript').Node): void => {
+      const handleSymbolUsage = (
+        symbol: import('typescript').Symbol | undefined,
+        locationNode: import('typescript').Node
+      ): void => {
+        if (!symbol) {
+          return;
+        }
+
+        const resolvedSymbol = symbol;
+
+        const displayName =
+          typeof symbol.getName === 'function'
+            ? symbol.getName()
+            : resolvedSymbol.getName();
+
+        const sourceFile = locationNode.getSourceFile();
+        const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+          locationNode.getStart()
+        );
+        const locationKey = `${sourceFile.fileName}:${line + 1}:${displayName}`;
+
+        if (checkedLocations.has(locationKey)) {
+          return;
+        }
+        checkedLocations.add(locationKey);
+
+        const maybeAddWarning = (messageSuffix?: string): void => {
+          const actualLine = line + 1;
+          const isSuppressed =
+            suppressedLines.get(sourceFile.fileName)?.has(actualLine) || false;
+
+          if (isSuppressed) {
+            usedSuppressions.add(`${sourceFile.fileName}:${actualLine}`);
+            if (logger) {
+              logger.info(
+                `Suppressed deprecated warning for '${displayName}' at ${sourceFile.fileName}:${actualLine}`
+              );
+            }
+            return;
+          }
+
+          const message = `PMAX001: '${displayName}' is deprecated${
+            messageSuffix ? `: ${messageSuffix}` : ''
+          }`;
+
+          // Avoid duplicate warnings at the same location with identical message
+          const alreadyAdded = deprecationWarnings.some(
+            (warning) =>
+              warning.file === sourceFile.fileName &&
+              warning.line === actualLine &&
+              warning.message === message
+          );
+
+          if (!alreadyAdded) {
+            deprecationWarnings.push({
+              file: sourceFile.fileName,
+              line: actualLine,
+              column: character + 1,
+              message,
+            });
+          }
+        };
+
+        const deprecationMessage = getDeprecationMessage(resolvedSymbol);
+        const hasJsDocMessage = deprecationMessage !== undefined;
+        if (hasJsDocMessage) {
+          maybeAddWarning(deprecationMessage);
+        }
+
+        if (resolvedSymbol.valueDeclaration) {
+          const modifierFlags = ts.getCombinedModifierFlags(
+            resolvedSymbol.valueDeclaration as import('typescript').Declaration
+          );
+          if (modifierFlags & ts.ModifierFlags.Deprecated) {
+            if (!hasJsDocMessage) {
+              maybeAddWarning();
+            }
+          }
+        }
+      };
+
+      const getJsxAttributeSymbol = (
+        element: import('typescript').JsxOpeningLikeElement,
+        attribute: import('typescript').JsxAttribute
+      ): import('typescript').Symbol | undefined => {
+        const attributeName = attribute.name.getText();
+        const directSymbol = checker.getSymbolAtLocation(attribute.name);
+
+        const needsTypeLookup = (): boolean => {
+          if (!directSymbol) {
+            return true;
+          }
+          try {
+            const declarations = directSymbol.getDeclarations() ?? [];
+            if (declarations.length === 0) {
+              return true;
+            }
+            return declarations.every((decl) => ts.isJsxAttribute(decl));
+          } catch {
+            return true;
+          }
+        };
+
+        if (directSymbol && !needsTypeLookup()) {
+          return directSymbol;
+        }
+
+        try {
+          const attributesType = checker.getTypeAtLocation(element.attributes);
+          if (!attributesType) {
+            return directSymbol;
+          }
+
+          const apparent = checker.getApparentType(attributesType);
+          const propSymbol = checker.getPropertyOfType(apparent, attributeName);
+          if (propSymbol) {
+            return propSymbol;
+          }
+        } catch {
+          // ignore type lookup failures
+        }
+
+        const resolvePropsType = (): import('typescript').Type | undefined => {
+          try {
+            const tagSymbol = checker.getSymbolAtLocation(element.tagName);
+            if (!tagSymbol) {
+              return undefined;
+            }
+
+            let resolvedTagSymbol = tagSymbol;
+            if (resolvedTagSymbol.flags & ts.SymbolFlags.Alias) {
+              resolvedTagSymbol = checker.getAliasedSymbol(resolvedTagSymbol);
+            }
+
+            const tagType = checker.getTypeOfSymbolAtLocation(
+              resolvedTagSymbol,
+              element.tagName
+            );
+
+            const extractPropsFromSignatures = (
+              signatures: readonly import('typescript').Signature[]
+            ): import('typescript').Type | undefined => {
+              for (const signature of signatures) {
+                const parameters = signature.getParameters();
+                if (parameters.length === 0) {
+                  continue;
+                }
+                const propsParam = parameters[0];
+                if (!propsParam) {
+                  continue;
+                }
+                const propsType = checker.getTypeOfSymbolAtLocation(
+                  propsParam,
+                  element.tagName
+                );
+                if (propsType) {
+                  return propsType;
+                }
+              }
+              return undefined;
+            };
+
+            const callProps = extractPropsFromSignatures(
+              checker.getSignaturesOfType(tagType, ts.SignatureKind.Call)
+            );
+            if (callProps) {
+              return callProps;
+            }
+
+            const constructProps = extractPropsFromSignatures(
+              checker.getSignaturesOfType(tagType, ts.SignatureKind.Construct)
+            );
+            if (constructProps) {
+              return constructProps;
+            }
+          } catch {
+            // ignore resolution issues
+          }
+          return undefined;
+        };
+
+        const propsType = resolvePropsType();
+        if (propsType) {
+          try {
+            const propSymbol = checker.getPropertyOfType(
+              propsType,
+              attributeName
+            );
+            if (propSymbol) {
+              return propSymbol;
+            }
+          } catch {
+            // ignore errors when reading component props
+          }
+        }
+
+        return directSymbol;
+      };
+
       // Helper: detect if this node has a JSDoc @deprecated tag in leading comments
       const hasDeprecatedLeadingJsDoc = (
         n: import('typescript').Node
@@ -456,34 +655,62 @@ const checkDeprecatedUsage = (
 
       // Determine which symbol to check based on node type
       if (ts.isIdentifier(node)) {
-        // Skip if this is a declaration name (not a usage)
-        const parent = node.parent;
         if (
-          parent &&
-          ((ts.isClassDeclaration(parent) && parent.name === node) ||
-            (ts.isInterfaceDeclaration(parent) && parent.name === node) ||
-            (ts.isFunctionDeclaration(parent) && parent.name === node) ||
-            (ts.isTypeAliasDeclaration(parent) && parent.name === node) ||
-            (ts.isEnumDeclaration(parent) && parent.name === node))
+          (ts.isJsxOpeningLikeElement(node.parent) &&
+            node.parent.tagName === node) ||
+          (ts.isJsxAttribute(node.parent) && node.parent.name === node)
         ) {
-          return; // Skip declarations
-        }
+          // Handled explicitly in JSX logic below
+          symbolToCheck = undefined;
+        } else {
+          // Skip if this is a declaration name (not a usage)
+          const parent = node.parent;
+          if (
+            parent &&
+            ((ts.isClassDeclaration(parent) && parent.name === node) ||
+              (ts.isInterfaceDeclaration(parent) && parent.name === node) ||
+              (ts.isFunctionDeclaration(parent) && parent.name === node) ||
+              (ts.isTypeAliasDeclaration(parent) && parent.name === node) ||
+              (ts.isEnumDeclaration(parent) && parent.name === node) ||
+              (ts.isPropertySignature(parent) && parent.name === node) ||
+              (ts.isPropertyDeclaration(parent) && parent.name === node) ||
+              (ts.isMethodSignature(parent) && parent.name === node) ||
+              (ts.isMethodDeclaration(parent) && parent.name === node) ||
+              (ts.isPropertyAccessExpression(parent) && parent.name === node))
+          ) {
+            return; // Skip declarations
+          }
 
-        // For variable declarations, only skip if it's not an initializer referencing a deprecated symbol
-        if (
-          parent &&
-          ts.isVariableDeclaration(parent) &&
-          parent.name === node
-        ) {
-          // This is the variable name being declared, not a usage
-          return;
-        }
+          // For variable declarations, only skip if it's not an initializer referencing a deprecated symbol
+          if (
+            parent &&
+            ts.isVariableDeclaration(parent) &&
+            parent.name === node
+          ) {
+            // This is the variable name being declared, not a usage
+            return;
+          }
 
-        // Direct identifier reference
-        symbolToCheck = checker.getSymbolAtLocation(node);
+          // Direct identifier reference
+          symbolToCheck = checker.getSymbolAtLocation(node);
+        }
       } else if (ts.isPropertyAccessExpression(node)) {
-        // Property access (obj.prop)
-        symbolToCheck = checker.getSymbolAtLocation(node);
+        if (
+          ts.isJsxOpeningLikeElement(node.parent) &&
+          node.parent.tagName === node
+        ) {
+          symbolToCheck = undefined;
+        } else if (
+          (ts.isCallExpression(node.parent) ||
+            ts.isNewExpression(node.parent)) &&
+          node.parent.expression === node
+        ) {
+          // The enclosing call/new expression will handle the symbol lookup
+          symbolToCheck = undefined;
+        } else {
+          // Property access (obj.prop)
+          symbolToCheck = checker.getSymbolAtLocation(node);
+        }
       } else if (ts.isElementAccessExpression(node)) {
         // Element access (obj['prop'])
         symbolToCheck = checker.getSymbolAtLocation(node);
@@ -528,90 +755,24 @@ const checkDeprecatedUsage = (
       }
 
       if (symbolToCheck) {
-        // Check if we've already processed this exact location
-        const sourceFile = nodeToReport.getSourceFile();
-        const { line, character } = sourceFile.getLineAndCharacterOfPosition(
-          nodeToReport.getStart()
+        handleSymbolUsage(symbolToCheck, nodeToReport);
+      }
+
+      if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+        handleSymbolUsage(
+          checker.getSymbolAtLocation(node.tagName),
+          node.tagName
         );
-        const locationKey = `${sourceFile.fileName}:${line + 1}:${character + 1}`;
 
-        if (checkedLocations.has(locationKey)) {
-          return; // Skip if we've already checked this exact location
-        }
-        checkedLocations.add(locationKey);
-
-        // Check if symbol is deprecated
-        const deprecationMessage = getDeprecationMessage(symbolToCheck);
-        if (deprecationMessage !== undefined) {
-          const actualLine = line + 1;
-
-          // Check if this line is suppressed
-          const isSuppressed =
-            suppressedLines.get(sourceFile.fileName)?.has(actualLine) || false;
-
-          if (isSuppressed) {
-            // Mark this suppression as used
-            usedSuppressions.add(`${sourceFile.fileName}:${actualLine}`);
-            if (logger) {
-              logger.info(
-                `Suppressed deprecated warning for '${symbolToCheck.getName()}' at ${sourceFile.fileName}:${actualLine}`
-              );
-            }
-          } else {
-            deprecationWarnings.push({
-              file: sourceFile.fileName,
-              line: actualLine,
-              column: character + 1,
-              message: `PMAX001: '${symbolToCheck.getName()}' is deprecated${
-                deprecationMessage ? `: ${deprecationMessage}` : ''
-              }`,
-            });
-          }
-        }
-
-        // Also check the value declaration for ModifierFlags.Deprecated
-        if (symbolToCheck.valueDeclaration) {
-          const modifierFlags = ts.getCombinedModifierFlags(
-            symbolToCheck.valueDeclaration as import('typescript').Declaration
-          );
-          if (modifierFlags & ts.ModifierFlags.Deprecated) {
-            const actualLine = line + 1;
-
-            // Check if this line is suppressed
-            const isSuppressed =
-              suppressedLines.get(sourceFile.fileName)?.has(actualLine) ||
-              false;
-
-            // Only add if not already added by JSDoc check and not suppressed
-            const alreadyAdded = deprecationWarnings.some(
-              (w) =>
-                w.file === sourceFile.fileName &&
-                w.line === actualLine &&
-                w.column === character + 1
+        for (const attribute of node.attributes.properties) {
+          if (ts.isJsxAttribute(attribute)) {
+            const attrSymbol = getJsxAttributeSymbol(node, attribute);
+            handleSymbolUsage(attrSymbol, attribute.name);
+          } else if (ts.isJsxSpreadAttribute(attribute)) {
+            handleSymbolUsage(
+              checker.getSymbolAtLocation(attribute.expression),
+              attribute.expression
             );
-
-            const alreadySuppressed = usedSuppressions.has(
-              `${sourceFile.fileName}:${actualLine}`
-            );
-
-            if (!alreadyAdded && !alreadySuppressed) {
-              if (isSuppressed) {
-                // Mark this suppression as used
-                usedSuppressions.add(`${sourceFile.fileName}:${actualLine}`);
-                if (logger) {
-                  logger.info(
-                    `Suppressed deprecated warning for '${symbolToCheck.getName()}' at ${sourceFile.fileName}:${actualLine}`
-                  );
-                }
-              } else {
-                deprecationWarnings.push({
-                  file: sourceFile.fileName,
-                  line: actualLine,
-                  column: character + 1,
-                  message: `PMAX001: '${symbolToCheck.getName()}' is deprecated`,
-                });
-              }
-            }
           }
         }
       }

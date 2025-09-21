@@ -909,9 +909,12 @@ export { topLevelResult };
 
     // Check specific warnings that should appear
     // The output shows line numbers where deprecated symbols are used
+    const warningLines = output
+      .split('\n')
+      .filter((line) => line.includes('PMAX001'));
 
     // Count the number of PMAX001 occurrences
-    const warningCount = (output.match(/PMAX001/g) || []).length;
+    const warningCount = warningLines.length;
 
     // We expect exactly 6 warnings:
     // 1. newMethod calling oldFunction (line 873)
