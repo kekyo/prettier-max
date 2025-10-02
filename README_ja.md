@@ -24,6 +24,7 @@ ESLintは複雑で、しばしば独自の設定エラーを起こします。
 
 - ビルド開始時に、自動的にPrettierでフォーマッティング
 - TypeScriptを使用している場合は、フォーマッティング後のTypeScript型チェック。更にJSDocの非推奨(`@deprecated`)もチェック可能
+- 定型バナーをビルド前に挿入可能
 - すべての設定調整は、`.prettierrc`、`.prettierignore`、`tsconfig.json`で指定され、一貫性を確保
 - 余計なことは一切行いません
 
@@ -96,9 +97,13 @@ prettierMax({
   // デフォルト: true
   typescript: true,
 
-  // @deprecated JSDocタグでマークされた非推奨シンボルの使用を検出
+  // `@deprecated` JSDocタグでマークされた非推奨シンボルの使用を検出
   // デフォルト: true
   detectDeprecated: true,
+
+  // バナー挿入対象のソースコードを識別する拡張子のリスト
+  // デフォルト: ['.ts', '.tsx', '.js', '.jsx']
+  bannerExtensions: ['.js', '.jsonc'],
 });
 ```
 
@@ -143,6 +148,28 @@ prettier-maxは、`.prettierrc`と`.prettierignore`が存在しなければ、�
   }
 }
 ```
+
+### ソースコードバナー（ヘッダ）挿入
+
+prettier-maxはビルド直前に、ソースコードの先頭部分に「バナー」を挿入する機能があります。
+`.prettierbanner` ファイルにバナーテキストを記述して配置することで、ソースコードに自動的に挿入出来ます。
+
+バナーテキストは:
+
+* `//`で始まる行、又はホワイトスペースのみの行
+* 最大20行まで
+
+で記述して下さい。例えば、以下のような形式です:
+
+```typescript
+// FooBar converter
+// Copyright (c) FooBar Bazo.
+```
+
+挿入対象のソースコードファイルは、デフォルトで `*.ts`, `*.tsx`, `*.js`, `*.jsx` が対象です。
+但し、`.prettierignore` に従って対象ソースコードファイルがフィルタされます。
+
+これらはViteプラグインオプション `bannerExtensions` で指定可能です。
 
 ### 非推奨の検出
 

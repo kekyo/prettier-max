@@ -47,6 +47,12 @@ export interface PrettierMaxOptions {
   formatOnBuild?: boolean;
 
   /**
+   * File extensions eligible for banner insertion (leading dot required)
+   * @default ['.ts', '.tsx', '.js', '.jsx']
+   */
+  bannerExtensions?: string[];
+
+  /**
    * Run TypeScript validation after formatting
    * @default true
    */

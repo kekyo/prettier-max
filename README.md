@@ -24,6 +24,7 @@ Key features:
 
 - Automatic Prettier formatting on build start
 - When using TypeScript, post-formatting TypeScript type checking. Additionally, JSDoc deprecation (`@deprecated`) can also be checked.
+- Optional project banner insertion before building
 - All fine-tuning is specified in `.prettierrc`, `.prettierignore` and `tsconfig.json`, ensuring consistency
 - This is not doing anything unnecessary
 
@@ -96,9 +97,13 @@ prettierMax({
   // Default: true
   typescript: true,
 
-  // Detect usage of deprecated symbols marked with @deprecated JSDoc tag
+  // Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag
   // Default: true
   detectDeprecated: true,
+
+  // List of file extensions identifying source code for banner insertion
+  // Default: [‘.ts’, ‘.tsx’, ‘.js’, ‘.jsx’]
+  bannerExtensions: ['.js', '.jsonc'],
 });
 ```
 
@@ -144,6 +149,28 @@ Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig
   }
 }
 ```
+
+### Inserting source code banners (headers)
+
+prettier-max has a feature that inserts a “banner” at the beginning of source code immediately before building.
+By writing banner text in a `.prettierbanner` file and placing it there, it can be automatically inserted into the source code.
+
+Banner text should be written as:
+
+* Lines starting with `//` or lines containing only whitespace
+* Maximum of 20 lines
+
+For example, use the following format:
+
+```typescript
+// FooBar converter
+// Copyright (c) FooBar Bazo.
+```
+
+By default, the target source code files are `*.ts`, `*.tsx`, `*.js`, and `*.jsx`.
+However, target source code files are filtered according to `.prettierignore`.
+
+These can be specified using the Vite plugin option `bannerExtensions`.
 
 ### Deprecated detection
 
