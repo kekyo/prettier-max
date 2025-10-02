@@ -157,8 +157,8 @@ By writing banner text in a `.prettierbanner` file and placing it there, it can 
 
 Banner text should be written as:
 
-* Lines starting with `//` or lines containing only whitespace
-* Maximum of 20 lines
+- Lines starting with `//` or lines containing only whitespace
+- Maximum of 20 lines
 
 For example, use the following format:
 

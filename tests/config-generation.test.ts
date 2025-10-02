@@ -1,3 +1,8 @@
+// prettier-max - A simple prettier Vite plugin
+// Copyright (c) Kouji Matsui (@kekyo@mi.kekyo.net)
+// Under MIT.
+// https://github.com/kekyo/prettier-max/
+
 import { describe, it, expect } from 'vitest';
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
