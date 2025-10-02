@@ -377,10 +377,17 @@ export const applyBanner = async (
     replaced: 0,
   };
 
+  // Process files in parallel to keep large projects responsive.
+  const results = await Promise.all(
+    targetFiles.map(async (file) => ({
+      file,
+      action: await processFile(file, banner),
+    }))
+  );
+
   const touched: { file: string; action: BannerAction }[] = [];
 
-  for (const file of targetFiles) {
-    const action = await processFile(file, banner);
+  for (const { file, action } of results) {
     if (!action) {
       // No change required; leave the file untouched to avoid triggering
       // watchers or unnecessary writes.
