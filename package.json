@@ -58,7 +58,7 @@
     "@types/fs-extra": ">=11.0.0",
     "@types/node": ">=20.0.0",
     "dayjs": ">=1.11.0",
-    "screw-up": ">=1.8.0",
+    "screw-up": ">=1.13.0",
     "vite-plugin-dts": ">=3.0.0",
     "vitest": ">=1.0.0"
   }
