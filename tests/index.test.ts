@@ -1,3 +1,8 @@
+// prettier-max - A simple prettier Vite plugin
+// Copyright (c) Kouji Matsui (@kekyo@mi.kekyo.net)
+// Under MIT.
+// https://github.com/kekyo/prettier-max/
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFile, writeFile } from 'fs/promises';
 import * as path from 'path';

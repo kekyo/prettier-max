@@ -1,3 +1,8 @@
+// prettier-max - A simple prettier Vite plugin
+// Copyright (c) Kouji Matsui (@kekyo@mi.kekyo.net)
+// Under MIT.
+// https://github.com/kekyo/prettier-max/
+
 import * as path from 'path';
 import dayjs from 'dayjs';
 import { mkdir } from 'fs/promises';

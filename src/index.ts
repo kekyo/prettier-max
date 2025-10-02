@@ -16,6 +16,7 @@ import {
 } from './checker.js';
 import { generatePrettierConfigFiles } from './configGenerator.js';
 import { version, git_commit_hash } from './generated/packageMetadata.js';
+import { applyBanner } from './banner.js';
 
 /**
  * Prettier automatic formatting plugin for Vite
@@ -29,6 +30,7 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
     typescript = true,
     generatePrettierConfig = true,
     detectDeprecated = true,
+    bannerExtensions = undefined,
   } = options;
 
   let reporter: ErrorReporter;
@@ -114,14 +116,31 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
     },
 
     buildStart: async () => {
-      // Only run formatting if formatOnBuild is enabled
-      if (!formatOnBuild) {
+      // Prevent concurrent processing
+      if (isFormatting) {
+        logger.info('Formatting already in progress, skipping...');
         return;
       }
 
-      // Prevent concurrent formatting
-      if (isFormatting) {
-        logger.info('Formatting already in progress, skipping...');
+      try {
+        await applyBanner({
+          rootDir,
+          logger,
+          extensions: bannerExtensions,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : `Unexpected banner error: ${String(error)}`;
+        logger.error(`Failed to apply banner: ${message}`);
+        if (failOnError) {
+          throw error;
+        }
+      }
+
+      // Only run formatting if formatOnBuild is enabled
+      if (!formatOnBuild) {
         return;
       }
 
