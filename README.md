@@ -71,6 +71,7 @@ The build works as follows:
 - TypeScript validation runs only when TypeScript is available in your project.
 - If TypeScript is not installed, the validation step is skipped and a warning is logged.
 - You can also explicitly disable it with the `typescript: false` option.
+- Provide a string path (relative to your project root) to use a specific `tsconfig.json`, e.g. `typescript: 'configs/tsconfig.build.json'`.
 
 ## Usage
 
@@ -95,6 +96,7 @@ prettierMax({
 
   // Run TypeScript validation after formatting
   // Default: true
+  // Set to a string to point to a specific tsconfig.json (relative to the project root)
   typescript: true,
 
   // Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag

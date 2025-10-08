@@ -811,7 +811,8 @@ const checkDeprecatedUsage = (
 export const runTypeScriptCheck = async (
   cwd: string,
   detectDeprecated: boolean = true,
-  logger?: Logger
+  logger?: Logger,
+  configPath?: string
 ): Promise<FormatResult> => {
   const startTime = Date.now();
   const errors: PrettierError[] = [];
@@ -828,24 +829,41 @@ export const runTypeScriptCheck = async (
       };
     }
     // Find tsconfig.json
-    const configFileName = ts.findConfigFile(
-      cwd,
-      ts.sys.fileExists,
-      'tsconfig.json'
-    );
+    let configFileName = configPath;
+    if (configFileName) {
+      if (!ts.sys.fileExists(configFileName)) {
+        return {
+          success: false,
+          errors: [
+            {
+              file: configFileName,
+              message: 'Provided tsconfig.json was not found',
+            },
+          ],
+          formattedFiles: [],
+          duration: Date.now() - startTime,
+        };
+      }
+    } else {
+      configFileName = ts.findConfigFile(
+        cwd,
+        ts.sys.fileExists,
+        'tsconfig.json'
+      );
 
-    if (!configFileName) {
-      return {
-        success: false,
-        errors: [
-          {
-            file: cwd,
-            message: 'Could not find a valid tsconfig.json',
-          },
-        ],
-        formattedFiles: [],
-        duration: Date.now() - startTime,
-      };
+      if (!configFileName) {
+        return {
+          success: false,
+          errors: [
+            {
+              file: cwd,
+              message: 'Could not find a valid tsconfig.json',
+            },
+          ],
+          formattedFiles: [],
+          duration: Date.now() - startTime,
+        };
+      }
     }
 
     // Read and parse tsconfig.json
