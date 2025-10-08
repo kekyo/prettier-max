@@ -13,7 +13,14 @@ import type { Logger } from './logger.js';
 const BANNER_FILENAME = '.prettierbanner';
 const PRETTIER_IGNORE_FILENAME = '.prettierignore';
 const MAX_BANNER_LINES = 20;
-const DEFAULT_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx'] as const;
+const DEFAULT_EXTENSIONS = [
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+] as const;
 const SKIP_DIRECTORIES = new Set(['node_modules', '.git']);
 
 type BannerAction = 'inserted' | 'replaced';

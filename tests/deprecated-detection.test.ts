@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdir, writeFile } from 'fs/promises';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { createTestDirectory } from './test-utils.js';
+import { createTestDirectory } from './test-utils';
 
 const runCommand = (
   command: string,
@@ -97,7 +97,7 @@ describe('Deprecated symbol detection', () => {
     await writeFile(
       path.join(testDir, 'vite.config.ts'),
       `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -240,7 +240,7 @@ export { result1, result2, result3 };
     await writeFile(
       path.join(testDir, 'vite.config.ts'),
       `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -390,7 +390,7 @@ export { value1, value2, value3 };
     await writeFile(
       path.join(testDir, 'vite.config.ts'),
       `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -516,7 +516,7 @@ export { result1, result2 };
     await writeFile(
       path.join(testDir, 'vite.config.ts'),
       `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -656,7 +656,7 @@ export { result1, result2, instance };
     await writeFile(
       path.join(testDir, 'vite.config.ts'),
       `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -800,7 +800,7 @@ export { x, y, processOld, processNew };
     await writeFile(
       path.join(testDir, 'vite.config.ts'),
       `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -989,7 +989,7 @@ export { topLevelResult };
     await writeFile(
       path.join(testDir, 'vite.config.ts'),
       `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [

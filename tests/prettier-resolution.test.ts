@@ -8,11 +8,8 @@ import { mkdir, writeFile, access, readFile } from 'fs/promises';
 import * as path from 'path';
 import { constants as fsConstants } from 'fs';
 
-import { createTestDirectory } from './test-utils.js';
-import {
-  runPrettierFormatProject,
-  getPrettierVersion,
-} from '../src/checker.js';
+import { createTestDirectory } from './test-utils';
+import { runPrettierFormatProject, getPrettierVersion } from '../src/checker';
 
 const createWorkspacePrettierStub = async (
   workspaceRoot: string,

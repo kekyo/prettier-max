@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdir, writeFile } from 'fs/promises';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { createTestDirectory } from './test-utils.js';
+import { createTestDirectory } from './test-utils';
 
 const runCommand = (
   command: string,
@@ -98,7 +98,7 @@ describe('TypeScript validation', () => {
       await writeFile(
         path.join(testDir, 'vite.config.ts'),
         `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -230,7 +230,7 @@ export { add, result, message };
       await writeFile(
         path.join(testDir, 'vite.config.ts'),
         `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -350,7 +350,7 @@ export { multiply, result };
       await writeFile(
         path.join(testDir, 'vite.config.ts'),
         `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -468,7 +468,7 @@ export { add, result, message };
       await writeFile(
         path.join(testDir, 'vite.config.ts'),
         `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [
@@ -587,7 +587,7 @@ export { add, result };
       await writeFile(
         path.join(testDir, 'vite.config.ts'),
         `import { defineConfig } from 'vite';
-import prettierMax from '${path.join(process.cwd(), 'dist', 'index.js')}';
+import prettierMax from '${path.join(process.cwd(), 'dist', 'index.mjs')}';
 
 export default defineConfig({
   plugins: [

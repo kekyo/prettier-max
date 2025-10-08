@@ -7,13 +7,10 @@ import { describe, it, expect } from 'vitest';
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import * as path from 'path';
-import { createTestDirectory } from './test-utils.js';
-import { generatePrettierConfigFiles } from '../src/configGenerator.js';
-import { createConsoleLogger } from '../src/logger.js';
-import {
-  prettierrcTemplate,
-  prettierignoreTemplate,
-} from '../src/templates.js';
+import { createTestDirectory } from './test-utils';
+import { generatePrettierConfigFiles } from '../src/configGenerator';
+import { createConsoleLogger } from '../src/logger';
+import { prettierrcTemplate, prettierignoreTemplate } from '../src/templates';
 
 describe('prettier config generation', () => {
   const logger = createConsoleLogger('test');
