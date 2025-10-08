@@ -589,6 +589,38 @@ const checkDeprecatedUsage = (
         return false;
       };
 
+      // Helper: detect if this node has any leading/trailing comment with @deprecated
+      const hasDeprecatedAdjacentComment = (
+        n: import('typescript').Node
+      ): boolean => {
+        try {
+          const leading = ts.getLeadingCommentRanges(
+            sourceText,
+            n.getFullStart()
+          );
+          if (leading) {
+            for (const c of leading) {
+              const text = sourceText.substring(c.pos, c.end);
+              if (/@deprecated\b/.test(text)) {
+                return true;
+              }
+            }
+          }
+          const trailing = ts.getTrailingCommentRanges(sourceText, n.getEnd());
+          if (trailing) {
+            for (const c of trailing) {
+              const text = sourceText.substring(c.pos, c.end);
+              if (/@deprecated\b/.test(text)) {
+                return true;
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+        return false;
+      };
+
       // Check if this is a function-like node that is deprecated
       // If so, skip checking its body
       if (
@@ -741,6 +773,9 @@ const checkDeprecatedUsage = (
           }
         }
       } else if (ts.isExportSpecifier(node)) {
+        if (hasDeprecatedAdjacentComment(node)) {
+          return; // Suppress deprecated exports scoped by inline comments
+        }
         // Export specifier - check the exported symbol
         const exportedSymbol = checker.getSymbolAtLocation(node.name);
         if (exportedSymbol) {

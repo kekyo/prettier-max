@@ -117,4 +117,31 @@ describe('Deprecated re-export handling', () => {
     expect(pmax002.length).toBe(0);
     expect(result.success).toBe(true);
   });
+
+  it('suppresses warning when export specifier has @deprecated line comment', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-export',
+      'reexport-line-comment-suppress'
+    );
+    await fs.mkdir(testDir, { recursive: true });
+
+    await fs.writeFile(
+      join(testDir, 'foobar.ts'),
+      `/**\n * @deprecated Will be removed soon\n */\nexport const WillBeRemoved = 1;\n`
+    );
+
+    await fs.writeFile(
+      join(testDir, 'index.ts'),
+      `export {\n  // @deprecated exported each symbol\n  WillBeRemoved,\n} from './foobar';\n`
+    );
+
+    await createTsConfigFile(testDir);
+
+    const result = await runTypeScriptCheck(testDir, true);
+    const deprecatedErrors = result.errors.filter((e) =>
+      e.message.includes('PMAX001')
+    );
+    expect(deprecatedErrors.length).toBe(0);
+    expect(result.success).toBe(true);
+  });
 });
