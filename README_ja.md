@@ -81,7 +81,7 @@ prettier-maxに指定できるオプションは以下の通りです：
 ```typescript
 // プラグインオプション：
 prettierMax({
-  // .prettierrcと.prettierignoreファイルが存在しない場合に生成
+  // .prettierrc(及びその亜種)と.prettierignoreファイルが存在しない場合に生成
   // デフォルト: true
   generatePrettierConfig: true,
 
@@ -114,7 +114,7 @@ prettier-maxには、主要な機能設定がありません。
 
 つまり、標準的なPrettierの設定方法やTypeScriptコンパイラの設定方法に従って調整すれば、意図した通りに動作します！
 
-prettier-maxは、`.prettierrc`と`.prettierignore`が存在しなければ、雛形を自動的に配置します。
+prettier-maxは、`.prettierrc`(及びその亜種)と`.prettierignore`が存在しなければ、雛形を自動的に配置します。
 （ファイルが存在しない場合のみ生成します。それも気に入らなければ、`generatePrettierConfig`を`false`にすることで抑止できます）
 
 ここでは、より強力なフォーマットとチェックをプロジェクトに適用する、`.prettierrc`と`tsconfig.json`の例を示します。各機能については、[Prettier設定ファイルのドキュメント](https://prettier.io/docs/configuration)と[TypeScript公式ドキュメント](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html)を参照してください。

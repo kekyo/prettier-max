@@ -81,7 +81,7 @@ The options you can specify for prettier-max are as follows:
 ```typescript
 // The plugin options:
 prettierMax({
-  // Generate .prettierrc and .prettierignore files if they don't exist
+  // Generate .prettierrc (and its variants) and .prettierignore files if they don't exist
   // Default: true
   generatePrettierConfig: true,
 
@@ -115,7 +115,7 @@ They are simply defined by `.prettierrc`, `.prettierignore`, and `tsconfig.json`
 In other words, if you adjust them according to the standard Prettier configuration methods and/or TypeScript compiler configuration methods,
 it will work exactly as intended!
 
-prettier-max automatically places templates if `.prettierrc` and `.prettierignore` do not exist.
+prettier-max automatically places templates if `.prettierrc` (and its variants) and `.prettierignore` do not exist.
 (It generates them only if the files do NOT exist. If you dislike this behavior, you can suppress it by setting `generatePrettierConfig` to `false`.)
 
 Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig.json` to manage your project with more powerful formats and checks. Refer to [Prettier configuration file documentation](https://prettier.io/docs/configuration) and [official TypeScript documentation](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html) for each feature.
