@@ -6,9 +6,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { runTypeScriptCheck } from '../src/checker.js';
-import { createTestDirectory } from './test-utils.js';
-import { createConsoleLogger } from '../src/logger.js';
+import { runTypeScriptCheck } from '../src/checker';
+import { createTestDirectory } from './test-utils';
 
 describe('Deprecated detection suppression directive', () => {
   const createTsConfigFile = async (testDir: string): Promise<void> => {

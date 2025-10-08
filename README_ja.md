@@ -71,6 +71,7 @@ export default defineConfig({
 - TypeScript 検証は、プロジェクトに TypeScript が導入されている場合にのみ実行されます。
 - TypeScript が未インストールの場合、検証はスキップされ、警告が表示されます。
 - 明示的に無効化したい場合は、オプションで `typescript: false` を指定できます。
+- プロジェクトルートからの相対パスを文字列で指定すると、特定の `tsconfig.json` を使用できます（例: `typescript: 'configs/tsconfig.build.json'`）。
 
 ## 使用方法
 
@@ -81,7 +82,7 @@ prettier-maxに指定できるオプションは以下の通りです：
 ```typescript
 // プラグインオプション：
 prettierMax({
-  // .prettierrcと.prettierignoreファイルが存在しない場合に生成
+  // .prettierrc(及びその亜種)と.prettierignoreファイルが存在しない場合に生成
   // デフォルト: true
   generatePrettierConfig: true,
 
@@ -93,8 +94,9 @@ prettierMax({
   // デフォルト: true
   formatOnBuild: true,
 
-  // フォーマッティング後にTypeScript検証を実行
+  // フォーマッティング後にTypeScript検証を実行する
   // デフォルト: true
+  // 文字列を指定すると、プロジェクトルートからの相対パスとして特定の tsconfig.json を利用
   typescript: true,
 
   // `@deprecated` JSDocタグでマークされた非推奨シンボルの使用を検出
@@ -114,7 +116,7 @@ prettier-maxには、主要な機能設定がありません。
 
 つまり、標準的なPrettierの設定方法やTypeScriptコンパイラの設定方法に従って調整すれば、意図した通りに動作します！
 
-prettier-maxは、`.prettierrc`と`.prettierignore`が存在しなければ、雛形を自動的に配置します。
+prettier-maxは、`.prettierrc`(及びその亜種)と`.prettierignore`が存在しなければ、雛形を自動的に配置します。
 （ファイルが存在しない場合のみ生成します。それも気に入らなければ、`generatePrettierConfig`を`false`にすることで抑止できます）
 
 ここでは、より強力なフォーマットとチェックをプロジェクトに適用する、`.prettierrc`と`tsconfig.json`の例を示します。各機能については、[Prettier設定ファイルのドキュメント](https://prettier.io/docs/configuration)と[TypeScript公式ドキュメント](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html)を参照してください。

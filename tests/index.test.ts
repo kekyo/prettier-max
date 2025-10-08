@@ -6,11 +6,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFile, writeFile } from 'fs/promises';
 import * as path from 'path';
-import { createTestDirectory } from './test-utils.js';
-import prettierMax from '../src/index.js';
-import type { PrettierMaxOptions } from '../src/index.js';
-import { ConsoleReporter } from '../src/reporters/console.js';
-import { runPrettierFormatProject } from '../src/checker.js';
+import { createTestDirectory } from './test-utils';
+import prettierMax from '../src/index';
+import type { PrettierMaxOptions } from '../src/index';
+import { ConsoleReporter } from '../src/reporters/console';
+import { runPrettierFormatProject } from '../src/checker';
 
 describe('prettier-max plugin', () => {
   describe('ConsoleReporter', () => {

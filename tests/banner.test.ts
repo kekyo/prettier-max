@@ -6,8 +6,8 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import { createTestDirectory } from './test-utils.js';
-import { applyBanner } from '../src/banner.js';
+import { createTestDirectory } from './test-utils';
+import { applyBanner } from '../src/banner';
 
 const makeLogger = () => ({
   info: () => {},

@@ -4,6 +4,7 @@
 // https://github.com/kekyo/prettier-max/
 
 import type { Plugin } from 'vite';
+import { resolve, relative } from 'path';
 import type { PrettierMaxOptions, ErrorReporter } from './types.js';
 import type { Logger } from './logger.js';
 import { createViteLoggerAdapter, createConsoleLogger } from './logger.js';
@@ -37,6 +38,7 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
   let rootDir: string;
   let logger: Logger = createConsoleLogger('prettier-max');
   let isFormatting = false;
+  let resolvedTsconfigPath: string | undefined;
 
   return {
     name: 'prettier-max',
@@ -53,6 +55,10 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
         );
       }
       reporter = customReporter ?? new ConsoleReporter(rootDir);
+      resolvedTsconfigPath =
+        typeof typescript === 'string'
+          ? resolve(rootDir, typescript)
+          : undefined;
 
       logger.info(`${version}-${git_commit_hash}: Started.`);
 
@@ -82,6 +88,11 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
         } else {
           logger.debug(`Detected TypeScript: ${typeScriptVersion}`);
           logger.info('TypeScript validation enabled on build');
+          if (resolvedTsconfigPath) {
+            const displayTsconfigPath =
+              relative(rootDir, resolvedTsconfigPath) || resolvedTsconfigPath;
+            logger.info(`Using tsconfig: ${displayTsconfigPath}`);
+          }
           if (detectDeprecated) {
             logger.info('Deprecated symbol detection enabled');
           } else {
@@ -202,7 +213,8 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
             const tsResult = await runTypeScriptCheck(
               rootDir,
               detectDeprecated,
-              logger
+              logger,
+              resolvedTsconfigPath
             );
 
             if (tsResult.errors.length > 0) {

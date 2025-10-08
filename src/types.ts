@@ -53,10 +53,11 @@ export interface PrettierMaxOptions {
   bannerExtensions?: string[];
 
   /**
-   * Run TypeScript validation after formatting
+   * Run TypeScript validation after formatting.
+   * Provide a string to point to a specific tsconfig.json (resolved from the project root).
    * @default true
    */
-  typescript?: boolean;
+  typescript?: boolean | string;
 
   /**
    * Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag

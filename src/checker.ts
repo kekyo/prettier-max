@@ -589,6 +589,38 @@ const checkDeprecatedUsage = (
         return false;
       };
 
+      // Helper: detect if this node has any leading/trailing comment with @deprecated
+      const hasDeprecatedAdjacentComment = (
+        n: import('typescript').Node
+      ): boolean => {
+        try {
+          const leading = ts.getLeadingCommentRanges(
+            sourceText,
+            n.getFullStart()
+          );
+          if (leading) {
+            for (const c of leading) {
+              const text = sourceText.substring(c.pos, c.end);
+              if (/@deprecated\b/.test(text)) {
+                return true;
+              }
+            }
+          }
+          const trailing = ts.getTrailingCommentRanges(sourceText, n.getEnd());
+          if (trailing) {
+            for (const c of trailing) {
+              const text = sourceText.substring(c.pos, c.end);
+              if (/@deprecated\b/.test(text)) {
+                return true;
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+        return false;
+      };
+
       // Check if this is a function-like node that is deprecated
       // If so, skip checking its body
       if (
@@ -741,6 +773,9 @@ const checkDeprecatedUsage = (
           }
         }
       } else if (ts.isExportSpecifier(node)) {
+        if (hasDeprecatedAdjacentComment(node)) {
+          return; // Suppress deprecated exports scoped by inline comments
+        }
         // Export specifier - check the exported symbol
         const exportedSymbol = checker.getSymbolAtLocation(node.name);
         if (exportedSymbol) {
@@ -811,7 +846,8 @@ const checkDeprecatedUsage = (
 export const runTypeScriptCheck = async (
   cwd: string,
   detectDeprecated: boolean = true,
-  logger?: Logger
+  logger?: Logger,
+  configPath?: string
 ): Promise<FormatResult> => {
   const startTime = Date.now();
   const errors: PrettierError[] = [];
@@ -828,24 +864,41 @@ export const runTypeScriptCheck = async (
       };
     }
     // Find tsconfig.json
-    const configFileName = ts.findConfigFile(
-      cwd,
-      ts.sys.fileExists,
-      'tsconfig.json'
-    );
+    let configFileName = configPath;
+    if (configFileName) {
+      if (!ts.sys.fileExists(configFileName)) {
+        return {
+          success: false,
+          errors: [
+            {
+              file: configFileName,
+              message: 'Provided tsconfig.json was not found',
+            },
+          ],
+          formattedFiles: [],
+          duration: Date.now() - startTime,
+        };
+      }
+    } else {
+      configFileName = ts.findConfigFile(
+        cwd,
+        ts.sys.fileExists,
+        'tsconfig.json'
+      );
 
-    if (!configFileName) {
-      return {
-        success: false,
-        errors: [
-          {
-            file: cwd,
-            message: 'Could not find a valid tsconfig.json',
-          },
-        ],
-        formattedFiles: [],
-        duration: Date.now() - startTime,
-      };
+      if (!configFileName) {
+        return {
+          success: false,
+          errors: [
+            {
+              file: cwd,
+              message: 'Could not find a valid tsconfig.json',
+            },
+          ],
+          formattedFiles: [],
+          duration: Date.now() - startTime,
+        };
+      }
     }
 
     // Read and parse tsconfig.json

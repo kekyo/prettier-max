@@ -5,7 +5,9 @@
   "keywords": [
     "prettier",
     "vite",
-    "plugin"
+    "plugin",
+    "typescript",
+    "detect-deprecation"
   ],
   "author": "Kouji Matsui (@kekyo@mi.kekyo.net)",
   "license": "MIT",
@@ -15,18 +17,20 @@
   },
   "homepage": "https://github.com/kekyo/prettier-max#readme",
   "readme": "README_pack.md",
+  "type": "module",
   "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
+      "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     }
   },
   "files": [
     "dist",
+    "LICENSE",
     "images/prettier-max-120.png"
   ],
   "scripts": {

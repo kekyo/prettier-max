@@ -7,13 +7,10 @@ import { describe, it, expect } from 'vitest';
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import * as path from 'path';
-import { createTestDirectory } from './test-utils.js';
-import { generatePrettierConfigFiles } from '../src/configGenerator.js';
-import { createConsoleLogger } from '../src/logger.js';
-import {
-  prettierrcTemplate,
-  prettierignoreTemplate,
-} from '../src/templates.js';
+import { createTestDirectory } from './test-utils';
+import { generatePrettierConfigFiles } from '../src/configGenerator';
+import { createConsoleLogger } from '../src/logger';
+import { prettierrcTemplate, prettierignoreTemplate } from '../src/templates';
 
 describe('prettier config generation', () => {
   const logger = createConsoleLogger('test');
@@ -116,6 +113,44 @@ describe('prettier config generation', () => {
     // Check both files were created
     expect(existsSync(prettierrcPath)).toBe(true);
     expect(existsSync(prettierignorePath)).toBe(true);
+  });
+
+  it('should not generate .prettierrc when alternate config file exists', async () => {
+    const testDir = await createTestDirectory(
+      'prettier-max',
+      'config-generation-alternate-config'
+    );
+    const alternateConfigPath = path.join(testDir, '.prettierrc.js');
+    await writeFile(alternateConfigPath, 'export default {};\n', 'utf-8');
+
+    // Ensure .prettierrc does not exist before running
+    const prettierrcPath = path.join(testDir, '.prettierrc');
+    expect(existsSync(prettierrcPath)).toBe(false);
+
+    await generatePrettierConfigFiles(testDir, logger);
+
+    // .prettierrc should still not exist because alternate config was detected
+    expect(existsSync(prettierrcPath)).toBe(false);
+  });
+
+  it('should not generate .prettierrc when package.json contains prettier key', async () => {
+    const testDir = await createTestDirectory(
+      'prettier-max',
+      'config-generation-package-json'
+    );
+    const packageJsonPath = path.join(testDir, 'package.json');
+    await writeFile(
+      packageJsonPath,
+      JSON.stringify({ name: 'sample', prettier: {} }, null, 2),
+      'utf-8'
+    );
+
+    const prettierrcPath = path.join(testDir, '.prettierrc');
+    expect(existsSync(prettierrcPath)).toBe(false);
+
+    await generatePrettierConfigFiles(testDir, logger);
+
+    expect(existsSync(prettierrcPath)).toBe(false);
   });
 
   it('should handle errors gracefully when unable to write files', async () => {

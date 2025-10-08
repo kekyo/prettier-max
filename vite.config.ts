@@ -26,9 +26,9 @@ export default defineConfig({
         fileURLToPath(new URL('.', import.meta.url)),
         'src/index.ts'
       ),
-      name: 'prettierMax',
+      name: 'prettier-max',
       fileName: (format, entryName) =>
-        `${entryName}.${format === 'es' ? 'js' : 'cjs'}`,
+        `${entryName}.${format === 'es' ? 'mjs' : 'cjs'}`,
       formats: ['es', 'cjs'],
     },
     rollupOptions: {
@@ -43,6 +43,7 @@ export default defineConfig({
         'debug',
       ],
     },
+    target: 'es2018',
     sourcemap: true,
     minify: false,
   },

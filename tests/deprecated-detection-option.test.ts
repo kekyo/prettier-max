@@ -6,8 +6,8 @@
 import { describe, it, expect } from 'vitest';
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { runTypeScriptCheck } from '../src/checker.js';
-import { createTestDirectory } from './test-utils.js';
+import { runTypeScriptCheck } from '../src/checker';
+import { createTestDirectory } from './test-utils';
 
 describe('Deprecated detection option', () => {
   const createTsConfigFile = async (testDir: string): Promise<void> => {
