@@ -79,8 +79,10 @@ export function normalFunction(): void {
 
     // Should have one warning (the unsuppressed one)
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0].message).toContain('PMAX001');
-    expect(result.errors[0].line).toBe(14); // Line with unsuppressed usage
+    const firstError = result.errors[0];
+    expect(firstError).toBeDefined();
+    expect(firstError?.message).toContain('PMAX001');
+    expect(firstError?.line).toBe(14); // Line with unsuppressed usage
 
     // Check that debug log was called for suppression
     expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -152,11 +154,13 @@ export function normalFunction(): void {
 
     // Should have one PMAX002 error
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0].message).toContain('PMAX002');
-    expect(result.errors[0].message).toContain(
+    const firstError = result.errors[0];
+    expect(firstError).toBeDefined();
+    expect(firstError?.message).toContain('PMAX002');
+    expect(firstError?.message).toContain(
       'Unnecessary @prettier-max-ignore-deprecated directive'
     );
-    expect(result.errors[0].line).toBe(7); // Line with the directive
+    expect(firstError?.line).toBe(7); // Line with the directive
   });
 
   it('should handle multiple suppressions correctly', async () => {
@@ -217,8 +221,13 @@ function test() {
     expect(pmax001Errors).toHaveLength(1);
     expect(pmax002Errors).toHaveLength(1);
 
-    expect(pmax001Errors[0].line).toBe(29); // Unsuppressed usage
-    expect(pmax002Errors[0].line).toBe(26); // Unused directive
+    const firstPmax001 = pmax001Errors[0];
+    const firstPmax002 = pmax002Errors[0];
+    expect(firstPmax001).toBeDefined();
+    expect(firstPmax002).toBeDefined();
+
+    expect(firstPmax001?.line).toBe(29); // Unsuppressed usage
+    expect(firstPmax002?.line).toBe(26); // Unused directive
   });
 
   it('should respect suppressions and deprecated scopes for JSX usages', async () => {
@@ -284,9 +293,11 @@ export function NormalRenderer() {
     );
 
     expect(pmax001Errors).toHaveLength(1);
-    expect(pmax001Errors[0].message).toContain("'legacy' is deprecated");
-    expect(pmax001Errors[0].message).toContain('replacement');
-    expect(pmax001Errors[0].line).toBe(20);
+    const firstPmax001 = pmax001Errors[0];
+    expect(firstPmax001).toBeDefined();
+    expect(firstPmax001?.message).toContain("'legacy' is deprecated");
+    expect(firstPmax001?.message).toContain('replacement');
+    expect(firstPmax001?.line).toBe(20);
   });
 
   it('should not trigger PMAX002 for non-directive comments mentioning the directive', async () => {
@@ -399,8 +410,10 @@ function test() {
     );
 
     expect(pmax001Errors).toHaveLength(1);
-    expect(pmax001Errors[0].message).toContain('OldClass');
-    expect(pmax001Errors[0].line).toBe(23); // Unsuppressed usage
+    const firstPmax001 = pmax001Errors[0];
+    expect(firstPmax001).toBeDefined();
+    expect(firstPmax001?.message).toContain('OldClass');
+    expect(firstPmax001?.line).toBe(23); // Unsuppressed usage
   });
 
   it('should detect and suppress deprecated default imports', async () => {
@@ -453,8 +466,10 @@ export { instance1, instance2 };
     );
 
     expect(pmax001Errors).toHaveLength(1);
-    expect(pmax001Errors[0].message).toContain('OldModule');
-    expect(pmax001Errors[0].line).toBe(5); // Line with unsuppressed import
+    const firstPmax001 = pmax001Errors[0];
+    expect(firstPmax001).toBeDefined();
+    expect(firstPmax001?.message).toContain('OldModule');
+    expect(firstPmax001?.line).toBe(5); // Line with unsuppressed import
   });
 
   it('should detect and suppress deprecated type imports', async () => {
@@ -521,11 +536,15 @@ export type { MyData, AnotherData };
     );
 
     expect(pmax001Errors).toHaveLength(1);
-    expect(pmax001Errors[0].message).toContain('OldInterface');
-    expect(pmax001Errors[0].line).toBe(5); // Line with unsuppressed import
+    const firstPmax001 = pmax001Errors[0];
+    expect(firstPmax001).toBeDefined();
+    expect(firstPmax001?.message).toContain('OldInterface');
+    expect(firstPmax001?.line).toBe(5); // Line with unsuppressed import
 
     // Should have one PMAX002 for unnecessary suppression
     expect(pmax002Errors).toHaveLength(1);
-    expect(pmax002Errors[0].line).toBe(7); // Line with unnecessary directive
+    const firstPmax002 = pmax002Errors[0];
+    expect(firstPmax002).toBeDefined();
+    expect(firstPmax002?.line).toBe(7); // Line with unnecessary directive
   });
 });

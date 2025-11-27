@@ -100,10 +100,10 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
           logger.debug(`Detected TypeScript: ${typeScriptVersion}`);
           logger.info('TypeScript validation enabled on build');
           if (resolvedTsconfigPaths?.length) {
-            if (resolvedTsconfigPaths.length === 1) {
+            const [firstTsconfigPath] = resolvedTsconfigPaths;
+            if (resolvedTsconfigPaths.length === 1 && firstTsconfigPath) {
               const displayTsconfigPath =
-                relative(rootDir, resolvedTsconfigPaths[0]) ||
-                resolvedTsconfigPaths[0];
+                relative(rootDir, firstTsconfigPath) || firstTsconfigPath;
               logger.info(`Using tsconfig: ${displayTsconfigPath}`);
             } else {
               logger.info(

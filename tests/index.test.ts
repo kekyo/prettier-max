@@ -169,12 +169,6 @@ const baz = 'qux';
     });
 
     it('should handle failOnError option', async () => {
-      const mockLogger = {
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-      };
-
       const mockReporter = {
         report: vi.fn(),
         clear: vi.fn(),
@@ -234,14 +228,22 @@ const baz = 'qux';
         bannerExtensions: [],
       });
 
-      await plugin.configResolved?.({
-        root: testDir,
-        logLevel: 'info',
-        customLogger: undefined,
-        logger: mockLogger,
-      } as any);
+      const pluginContext = {} as any;
 
-      await plugin.buildStart?.();
+      const configResolvedHook = plugin.configResolved;
+      if (typeof configResolvedHook === 'function') {
+        await configResolvedHook.call(pluginContext, {
+          root: testDir,
+          logLevel: 'info',
+          customLogger: undefined,
+          logger: mockLogger,
+        } as any);
+      }
+
+      const buildStartHook = plugin.buildStart;
+      if (typeof buildStartHook === 'function') {
+        await buildStartHook.call(pluginContext, {} as any);
+      }
 
       const resolvedApp = path.resolve(testDir, 'tsconfig.app.json');
       const resolvedBuild = path.resolve(

@@ -60,7 +60,9 @@ describe('Deprecated re-export handling', () => {
     const result = await runTypeScriptCheck(testDir, true);
     const pmax001 = result.errors.filter((e) => e.message.includes('PMAX001'));
     expect(pmax001.length).toBe(1);
-    expect(pmax001[0].message).toContain('foobar');
+    const first = pmax001[0];
+    expect(first).toBeDefined();
+    expect(first?.message).toContain('foobar');
   });
 
   it('suppresses warning when export declaration has @deprecated JSDoc', async () => {
