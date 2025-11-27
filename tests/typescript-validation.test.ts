@@ -172,6 +172,7 @@ export { add, result, message };
 
       // Build should continue (failOnError: false)
       expect(output).toContain('Build continuing despite TypeScript errors');
+      expect(code).toBe(0);
     }, 20000);
 
     it('should fail build when failOnError is true', async () => {
@@ -676,6 +677,7 @@ export { undefinedVar, result1, numberVar, value, result2, isOn };
       expect(output).toMatch(/TS2339:.*does not exist on type/);
       expect(output).toMatch(/TS2554:.*Expected \d+ arguments/);
       expect(output).toMatch(/TS2551:.*Did you mean/);
+      expect(code).toBe(0);
     }, 20000);
   });
 });

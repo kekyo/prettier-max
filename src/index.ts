@@ -5,7 +5,11 @@
 
 import type { Plugin } from 'vite';
 import { resolve, relative } from 'path';
-import type { PrettierMaxOptions, ErrorReporter } from './types.js';
+import type {
+  PrettierMaxOptions,
+  ErrorReporter,
+  PrettierError,
+} from './types.js';
 import type { Logger } from './logger.js';
 import { createViteLoggerAdapter, createConsoleLogger } from './logger.js';
 import { ConsoleReporter } from './reporters/console.js';
@@ -38,7 +42,7 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
   let rootDir: string;
   let logger: Logger = createConsoleLogger('prettier-max');
   let isFormatting = false;
-  let resolvedTsconfigPath: string | undefined;
+  let resolvedTsconfigPaths: string[] | undefined;
 
   return {
     name: 'prettier-max',
@@ -55,10 +59,17 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
         );
       }
       reporter = customReporter ?? new ConsoleReporter(rootDir);
-      resolvedTsconfigPath =
+      resolvedTsconfigPaths =
         typeof typescript === 'string'
-          ? resolve(rootDir, typescript)
-          : undefined;
+          ? [resolve(rootDir, typescript)]
+          : Array.isArray(typescript)
+            ? typescript
+                .filter((tsconfigPath) => tsconfigPath)
+                .map((tsconfigPath) => resolve(rootDir, tsconfigPath))
+            : undefined;
+      if (resolvedTsconfigPaths?.length) {
+        resolvedTsconfigPaths = Array.from(new Set(resolvedTsconfigPaths));
+      }
 
       logger.info(`${version}-${git_commit_hash}: Started.`);
 
@@ -88,10 +99,22 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
         } else {
           logger.debug(`Detected TypeScript: ${typeScriptVersion}`);
           logger.info('TypeScript validation enabled on build');
-          if (resolvedTsconfigPath) {
-            const displayTsconfigPath =
-              relative(rootDir, resolvedTsconfigPath) || resolvedTsconfigPath;
-            logger.info(`Using tsconfig: ${displayTsconfigPath}`);
+          if (resolvedTsconfigPaths?.length) {
+            const [firstTsconfigPath] = resolvedTsconfigPaths;
+            if (resolvedTsconfigPaths.length === 1 && firstTsconfigPath) {
+              const displayTsconfigPath =
+                relative(rootDir, firstTsconfigPath) || firstTsconfigPath;
+              logger.info(`Using tsconfig: ${displayTsconfigPath}`);
+            } else {
+              logger.info(
+                `Using ${resolvedTsconfigPaths.length} tsconfig files:`
+              );
+              for (const tsconfigPath of resolvedTsconfigPaths) {
+                const displayTsconfigPath =
+                  relative(rootDir, tsconfigPath) || tsconfigPath;
+                logger.info(`  \x1b[90m${displayTsconfigPath}\x1b[0m`);
+              }
+            }
           }
           if (detectDeprecated) {
             logger.info('Deprecated symbol detection enabled');
@@ -209,49 +232,86 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
         if (typescript && result.errors.length === 0) {
           const tsVersion = await getTypeScriptVersion();
           if (tsVersion) {
-            logger.info('Running TypeScript validation...');
-            const tsResult = await runTypeScriptCheck(
-              rootDir,
-              detectDeprecated,
-              logger,
-              resolvedTsconfigPath
-            );
+            const tsconfigTargets =
+              resolvedTsconfigPaths && resolvedTsconfigPaths.length > 0
+                ? resolvedTsconfigPaths
+                : [undefined];
+            const aggregatedErrors: PrettierError[] = [];
+            let totalTsDuration = 0;
 
-            if (tsResult.errors.length > 0) {
-              logger.error(
-                `\x1b[31m✗\x1b[0m TypeScript validation failed: ${tsResult.errors.length} error${tsResult.errors.length === 1 ? '' : 's'}`
+            for (const [index, tsconfigPath] of tsconfigTargets.entries()) {
+              const displayTsconfigPath =
+                tsconfigPath !== undefined
+                  ? relative(rootDir, tsconfigPath) || tsconfigPath
+                  : undefined;
+
+              const runLabel =
+                tsconfigTargets.length > 1
+                  ? `Running TypeScript validation (${index + 1}/${tsconfigTargets.length})`
+                  : 'Running TypeScript validation';
+
+              logger.info(
+                displayTsconfigPath
+                  ? `${runLabel} with ${displayTsconfigPath}...`
+                  : `${runLabel}...`
               );
 
-              // Log each error
-              for (const error of tsResult.errors) {
-                const relativePath = error.file.replace(rootDir + '/', '');
-                if (error.line && error.column) {
-                  logger.error(
-                    `  \x1b[31m${relativePath}:${error.line}:${error.column}\x1b[0m - ${error.message}`
-                  );
-                } else {
-                  logger.error(
-                    `  \x1b[31m${relativePath}\x1b[0m - ${error.message}`
+              const tsResult = await runTypeScriptCheck(
+                rootDir,
+                detectDeprecated,
+                logger,
+                tsconfigPath
+              );
+
+              totalTsDuration += tsResult.duration;
+
+              if (tsResult.errors.length > 0) {
+                logger.error(
+                  `\x1b[31m✗\x1b[0m TypeScript validation failed${displayTsconfigPath ? ` for ${displayTsconfigPath}` : ''}: ${tsResult.errors.length} error${tsResult.errors.length === 1 ? '' : 's'}`
+                );
+
+                // Log each error
+                for (const error of tsResult.errors) {
+                  const relativePath = error.file.replace(rootDir + '/', '');
+                  if (error.line && error.column) {
+                    logger.error(
+                      `  \x1b[31m${relativePath}:${error.line}:${error.column}\x1b[0m - ${error.message}`
+                    );
+                  } else {
+                    logger.error(
+                      `  \x1b[31m${relativePath}\x1b[0m - ${error.message}`
+                    );
+                  }
+                }
+
+                aggregatedErrors.push(...tsResult.errors);
+                if (!failOnError) {
+                  logger.warn(
+                    '\x1b[33m⚠\x1b[0m Build continuing despite TypeScript errors'
                   );
                 }
+              } else {
+                logger.info(
+                  `\x1b[32m✓\x1b[0m TypeScript validation passed${displayTsconfigPath ? ` for ${displayTsconfigPath}` : ''}`
+                );
               }
 
-              if (failOnError) {
-                throw new Error(
-                  `TypeScript validation failed: ${tsResult.errors.length} error${tsResult.errors.length === 1 ? '' : 's'} found.`
-                );
-              } else {
-                logger.warn(
-                  '\x1b[33m⚠\x1b[0m Build continuing despite TypeScript errors'
-                );
-              }
-            } else {
-              logger.info('\x1b[32m✓\x1b[0m TypeScript validation passed');
+              logger.info(
+                `\x1b[90mTypeScript validation completed in ${tsResult.duration}ms${displayTsconfigPath ? ` (${displayTsconfigPath})` : ''}\x1b[0m`
+              );
             }
 
-            logger.info(
-              `\x1b[90mTypeScript validation completed in ${tsResult.duration}ms\x1b[0m`
-            );
+            if (tsconfigTargets.length > 1) {
+              logger.info(
+                `\x1b[90mTotal TypeScript validation time: ${totalTsDuration}ms\x1b[0m`
+              );
+            }
+
+            if (aggregatedErrors.length > 0 && failOnError) {
+              throw new Error(
+                `TypeScript validation failed: ${aggregatedErrors.length} error${aggregatedErrors.length === 1 ? '' : 's'} found.`
+              );
+            }
           }
         }
       } catch (error) {

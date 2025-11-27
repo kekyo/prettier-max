@@ -10,7 +10,7 @@ import { createTestDirectory } from './test-utils';
 import prettierMax from '../src/index';
 import type { PrettierMaxOptions } from '../src/index';
 import { ConsoleReporter } from '../src/reporters/console';
-import { runPrettierFormatProject } from '../src/checker';
+import * as checker from '../src/checker';
 
 describe('prettier-max plugin', () => {
   describe('ConsoleReporter', () => {
@@ -73,7 +73,7 @@ describe('prettier-max plugin', () => {
       await writeFile(filePath, unformattedContent);
 
       // Run prettier format on project
-      const result = await runPrettierFormatProject(testDir, undefined);
+      const result = await checker.runPrettierFormatProject(testDir, undefined);
 
       expect(result.success).toBe(true);
       expect(result.formattedFiles.length).toBeGreaterThan(0);
@@ -94,7 +94,7 @@ const baz = 'qux';
       await writeFile(filePath, formattedContent);
 
       // Run prettier format on project
-      const result = await runPrettierFormatProject(testDir, undefined);
+      const result = await checker.runPrettierFormatProject(testDir, undefined);
 
       expect(result.success).toBe(true);
       expect(result.formattedFiles.length).toBe(0); // No files were modified
@@ -147,7 +147,7 @@ const baz = 'qux';
       await writeFile(unformattedPath, `const  foo   =    "bar"  ;`);
 
       // Run project format
-      const result = await runPrettierFormatProject(testDir, undefined);
+      const result = await checker.runPrettierFormatProject(testDir, undefined);
 
       expect(result.success).toBe(true);
       expect(result.formattedFiles.length).toBeGreaterThan(0);
@@ -169,12 +169,6 @@ const baz = 'qux';
     });
 
     it('should handle failOnError option', async () => {
-      const mockLogger = {
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-      };
-
       const mockReporter = {
         report: vi.fn(),
         clear: vi.fn(),
@@ -187,6 +181,94 @@ const baz = 'qux';
       });
 
       expect(plugin.buildStart).toBeDefined();
+    });
+  });
+
+  describe('TypeScript validation options', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('runs validation for every specified tsconfig path', async () => {
+      const testDir = await createTestDirectory('prettier-max', 'ts-multi');
+
+      const mockLogger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+
+      const getPrettierVersionSpy = vi
+        .spyOn(checker, 'getPrettierVersion')
+        .mockResolvedValue('3.0.0');
+      const getTypeScriptVersionSpy = vi
+        .spyOn(checker, 'getTypeScriptVersion')
+        .mockResolvedValue('5.4.0');
+      const formatSpy = vi
+        .spyOn(checker, 'runPrettierFormatProject')
+        .mockResolvedValue({
+          success: true,
+          errors: [],
+          formattedFiles: [],
+          duration: 5,
+        });
+      const typeCheckSpy = vi
+        .spyOn(checker, 'runTypeScriptCheck')
+        .mockResolvedValue({
+          success: true,
+          errors: [],
+          formattedFiles: [],
+          duration: 10,
+        });
+
+      const plugin = prettierMax({
+        typescript: ['tsconfig.app.json', 'configs/tsconfig.build.json'],
+        generatePrettierConfig: false,
+        bannerExtensions: [],
+      });
+
+      const pluginContext = {} as any;
+
+      const configResolvedHook = plugin.configResolved;
+      if (typeof configResolvedHook === 'function') {
+        await configResolvedHook.call(pluginContext, {
+          root: testDir,
+          logLevel: 'info',
+          customLogger: undefined,
+          logger: mockLogger,
+        } as any);
+      }
+
+      const buildStartHook = plugin.buildStart;
+      if (typeof buildStartHook === 'function') {
+        await buildStartHook.call(pluginContext, {} as any);
+      }
+
+      const resolvedApp = path.resolve(testDir, 'tsconfig.app.json');
+      const resolvedBuild = path.resolve(
+        testDir,
+        'configs/tsconfig.build.json'
+      );
+
+      expect(getPrettierVersionSpy).toHaveBeenCalled();
+      expect(getTypeScriptVersionSpy).toHaveBeenCalled();
+      expect(formatSpy).toHaveBeenCalledTimes(1);
+      expect(typeCheckSpy).toHaveBeenCalledTimes(2);
+      expect(typeCheckSpy).toHaveBeenNthCalledWith(
+        1,
+        testDir,
+        true,
+        expect.anything(),
+        resolvedApp
+      );
+      expect(typeCheckSpy).toHaveBeenNthCalledWith(
+        2,
+        testDir,
+        true,
+        expect.anything(),
+        resolvedBuild
+      );
     });
   });
 });

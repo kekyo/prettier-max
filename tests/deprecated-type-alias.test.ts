@@ -55,7 +55,9 @@ describe('Deprecated detection within type alias declarations', () => {
     const result = await runTypeScriptCheck(testDir, true);
     const pmax001 = result.errors.filter((e) => e.message.includes('PMAX001'));
     expect(pmax001.length).toBe(1);
-    expect(pmax001[0].message).toContain('OldType');
+    const first = pmax001[0];
+    expect(first).toBeDefined();
+    expect(first?.message).toContain('OldType');
   });
 
   it('does not warn inside deprecated export type alias', async () => {

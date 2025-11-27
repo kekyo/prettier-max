@@ -70,8 +70,6 @@ export default defineConfig({
 
 - TypeScript 検証は、プロジェクトに TypeScript が導入されている場合にのみ実行されます。
 - TypeScript が未インストールの場合、検証はスキップされ、警告が表示されます。
-- 明示的に無効化したい場合は、オプションで `typescript: false` を指定できます。
-- プロジェクトルートからの相対パスを文字列で指定すると、特定の `tsconfig.json` を使用できます（例: `typescript: 'configs/tsconfig.build.json'`）。
 
 ## 使用方法
 
@@ -96,7 +94,7 @@ prettierMax({
 
   // フォーマッティング後にTypeScript検証を実行する
   // デフォルト: true
-  // 文字列を指定すると、プロジェクトルートからの相対パスとして特定の tsconfig.json を利用
+  // 文字列（または文字列配列）を指定すると、プロジェクトルートからの相対パスとして特定の tsconfig.json を利用
   typescript: true,
 
   // `@deprecated` JSDocタグでマークされた非推奨シンボルの使用を検出
@@ -150,6 +148,15 @@ prettier-maxは、`.prettierrc`(及びその亜種)と`.prettierignore`が存在
   }
 }
 ```
+
+### TypeScript検証の制御
+
+TypeScript検証を明示的に無効化したい場合は、オプションで `typescript: false` を指定できます。
+
+プロジェクトルートからの相対パスを文字列で指定すると、特定の `tsconfig.json` を使用できます。
+複数指定したい場合は文字列配列で指定します（例: `typescript: ['tsconfig.app.json', 'configs/tsconfig.build.json']`）。
+
+複数指定することで、例えばコード本体とテストの両方を、異なるディレクトリに配置したり異なる条件でコンパイルするような場合でもチェックできます。
 
 ### ソースコードバナー（ヘッダ）挿入
 

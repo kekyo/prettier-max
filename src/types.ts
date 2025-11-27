@@ -55,9 +55,10 @@ export interface PrettierMaxOptions {
   /**
    * Run TypeScript validation after formatting.
    * Provide a string to point to a specific tsconfig.json (resolved from the project root).
+   * Provide an array of strings to run validation for multiple tsconfig.json files.
    * @default true
    */
-  typescript?: boolean | string;
+  typescript?: boolean | string | string[];
 
   /**
    * Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag
