@@ -70,8 +70,6 @@ The build works as follows:
 
 - TypeScript validation runs only when TypeScript is available in your project.
 - If TypeScript is not installed, the validation step is skipped and a warning is logged.
-- You can also explicitly disable it with the `typescript: false` option.
-- Provide a string path (relative to your project root) to use a specific `tsconfig.json`, e.g. `typescript: 'configs/tsconfig.build.json'`.
 
 ## Usage
 
@@ -96,7 +94,7 @@ prettierMax({
 
   // Run TypeScript validation after formatting
   // Default: true
-  // Set to a string to point to a specific tsconfig.json (relative to the project root)
+  // Set to a string (or array of strings) to point to specific tsconfig.json files (relative to the project root)
   typescript: true,
 
   // Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag
@@ -120,7 +118,8 @@ it will work exactly as intended!
 prettier-max automatically places templates if `.prettierrc` (and its variants) and `.prettierignore` do not exist.
 (It generates them only if the files do NOT exist. If you dislike this behavior, you can suppress it by setting `generatePrettierConfig` to `false`.)
 
-Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig.json` to manage your project with more powerful formats and checks. Refer to [Prettier configuration file documentation](https://prettier.io/docs/configuration) and [official TypeScript documentation](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html) for each feature.
+Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig.json` to manage your project with more powerful formats and checks.
+Refer to [Prettier configuration file documentation](https://prettier.io/docs/configuration) and [official TypeScript documentation](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html) for each feature.
 
 `.prettierrc`:
 
@@ -151,6 +150,15 @@ Here, we'll show an example of adding definitions to `.prettierrc` and `tsconfig
   }
 }
 ```
+
+### Controlling TypeScript Validation
+
+To explicitly disable TypeScript validation, you can optionally specify `typescript: false`.
+
+Specifying a string representing a relative path from the project root allows you to use a specific `tsconfig.json` file.
+To specify multiple files, use an array of strings (e.g., `typescript: [‘tsconfig.app.json’, ‘configs/tsconfig.build.json’]`).
+
+By specifying multiple files, you can perform checks even when, for example, your main code and tests are located in different directories or compiled under different conditions.
 
 ### Inserting source code banners (headers)
 

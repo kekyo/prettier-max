@@ -18,7 +18,10 @@ export default defineConfig({
     screwUp({
       outputMetadataFile: true,
     }),
-    prettierMax(), // Self-hosted
+    prettierMax({
+      // Self-hosted
+      typescript: ['tsconfig.json', 'tsconfig.test.json'],
+    }),
   ],
   build: {
     lib: {
