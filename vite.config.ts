@@ -13,7 +13,7 @@ import prettierMax from './src/index';
 export default defineConfig({
   plugins: [
     dts({
-      insertTypesEntry: true,
+      rollupTypes: true,
     }),
     screwUp({
       outputMetadataFile: true,
