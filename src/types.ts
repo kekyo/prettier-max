@@ -24,6 +24,8 @@ export interface ErrorReporter {
   clear(): void;
 }
 
+export type DefaultImportDetectionMode = 'none' | 'exceptType' | 'all';
+
 /**
  * Plugin options
  */
@@ -66,6 +68,12 @@ export interface PrettierMaxOptions {
    * @default true
    */
   detectDeprecated?: boolean;
+
+  /**
+   * Detect default imports/exports to avoid ESM/CJS interop mismatches
+   * @default 'none'
+   */
+  detectDefaultImport?: DefaultImportDetectionMode;
 
   //////////////////////////////////////////////////////////////////////////////
 

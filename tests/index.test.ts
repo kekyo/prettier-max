@@ -260,14 +260,16 @@ const baz = 'qux';
         testDir,
         true,
         expect.anything(),
-        resolvedApp
+        resolvedApp,
+        'none'
       );
       expect(typeCheckSpy).toHaveBeenNthCalledWith(
         2,
         testDir,
         true,
         expect.anything(),
-        resolvedBuild
+        resolvedBuild,
+        'none'
       );
     });
   });

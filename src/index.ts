@@ -35,6 +35,7 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
     typescript = true,
     generatePrettierConfig = true,
     detectDeprecated = true,
+    detectDefaultImport = 'none',
     bannerExtensions = undefined,
   } = options;
 
@@ -122,6 +123,15 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
             logger.debug(
               'Deprecated symbol detection disabled (performance mode)'
             );
+          }
+          if (detectDefaultImport !== 'none') {
+            const defaultImportMessage =
+              detectDefaultImport === 'exceptType'
+                ? 'Default import detection enabled (type-only imports allowed)'
+                : 'Default import detection enabled';
+            logger.info(defaultImportMessage);
+          } else {
+            logger.debug('Default import detection disabled');
           }
         }
       }
@@ -260,7 +270,8 @@ const prettierMax = (options: PrettierMaxOptions = {}): Plugin => {
                 rootDir,
                 detectDeprecated,
                 logger,
-                tsconfigPath
+                tsconfigPath,
+                detectDefaultImport
               );
 
               totalTsDuration += tsResult.duration;
@@ -343,4 +354,5 @@ export type {
   PrettierMaxOptions,
   PrettierError,
   ErrorReporter,
+  DefaultImportDetectionMode,
 } from './types.js';

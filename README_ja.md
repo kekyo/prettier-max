@@ -10,7 +10,7 @@
 
 ---
 
-[(English is here)](./README.md)
+[(English language is here)](./README.md)
 
 ## これは何？
 
@@ -23,7 +23,7 @@ ESLintは複雑で、しばしば独自の設定エラーを起こします。
 主な機能：
 
 - ビルド開始時に、自動的にPrettierでフォーマッティング
-- TypeScriptを使用している場合は、フォーマッティング後のTypeScript型チェック。更にJSDocの非推奨(`@deprecated`)もチェック可能
+- TypeScriptを使用している場合は、フォーマッティング後のTypeScript型チェック。更にJSDocの非推奨(`@deprecated`)やdefault importもチェック可能
 - 定型バナーをビルド前に挿入可能
 - すべての設定調整は、`.prettierrc`、`.prettierignore`、`tsconfig.json`で指定され、一貫性を確保
 - 余計なことは一切行いません
@@ -56,7 +56,7 @@ export default defineConfig({
 ビルドは次のように動作します:
 
 1. ビルド開始時に、プラグインはすべての対象ファイルをフォーマット
-2. フォーマッティングが成功し、TypeScriptが有効（デフォルト）な場合、型チェックと非推奨検出を実行
+2. フォーマッティングが成功し、TypeScriptが有効（デフォルト）な場合、型チェックと非推奨/default import検出を実行
 3. エラーはファイルパスと行番号と共にコンソールに報告される
 4. `failOnError` が `true` （デフォルト）の場合、エラーがあるとビルドが停止
 
@@ -100,6 +100,11 @@ prettierMax({
   // `@deprecated` JSDocタグでマークされた非推奨シンボルの使用を検出
   // デフォルト: true
   detectDeprecated: true,
+
+  // default import/export を検出して ESM/CJS の相互運用差異を回避
+  // 設定値: 'none' | 'exceptType' | 'all'
+  // デフォルト: 'none'
+  detectDefaultImport: 'none',
 
   // バナー挿入対象のソースコードを識別する拡張子のリスト
   // デフォルト: ['.ts', '.tsx', '.js', '.jsx']
@@ -213,6 +218,69 @@ olderSuperComponent();
 
 非推奨の検出は、TypeScriptに詳細解析を行わせます。もし、検出速度が問題になる場合は、 `detectDeprecated: false` でこれを無効化できます。
 
+### default import の検出 (高度なオプション)
+
+prettier-maxは、ESM/CJSの相互運用差異によるランタイムエラーを避けるため、default import/export を検出できます。
+ビルドは通るのに、実行時に `require()` がモジュールオブジェクトを返し、
+生成されたコードが `.default` を参照して `undefined` になるケースを想定しています。
+
+`detectDefaultImport` の設定値は次の通りです:
+
+- `none` (デフォルト): 検出しない
+- `exceptType`: `import type` とtype-onlyなre-exportを許可
+- `all`: type-only を含めて default import/export を検出
+- default import/export を検出すると `PMAX003` エラーが報告されます
+
+`PMAX003` が発生する例:
+
+```typescript
+// cjs-lib (外部パッケージ、変更不可)
+module.exports = function greet() {
+  return 'hi';
+};
+
+// app.ts
+import greet from 'cjs-lib'; // PMAX003
+greet(); // runtime may fail: greet is undefined
+```
+
+モジュール側を変更できる場合は、named export を使うのが安全です:
+
+```typescript
+// foo.ts
+export class Foo {}
+
+// index.ts
+import { Foo } from './foo';
+export { Foo };
+```
+
+外部パッケージの default export を変更できない場合は、
+一度だけラップして named export として再公開します（default importは使いません）:
+
+```typescript
+// cjs-lib-wrapper.ts
+import * as cjsLib from 'cjs-lib';
+
+const greet =
+  (cjsLib as { default?: typeof cjsLib }).default ?? cjsLib;
+
+export { greet };
+```
+
+```typescript
+// app.ts
+import { greet } from './cjs-lib-wrapper';
+greet();
+```
+
+`exceptType` では type-only な default import であれば許可します:
+
+```typescript
+import type Foo from './foo';
+export type FooAlias = Foo;
+```
+
 ### ログ出力
 
 ログ出力の調整はViteのオプション指定に準じます:
@@ -239,7 +307,7 @@ DEBUG=vite:plugin:prettier-max vite build
 
 ## 制限
 
-TypeScriptを使用していない場合は、JSDocの非推奨チェックを行うことは出来ません。
+TypeScriptを使用していない場合は、JSDocの非推奨/default importチェックを行うことは出来ません。
 
 ---
 

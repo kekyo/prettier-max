@@ -10,7 +10,7 @@ Minimalist automatic Prettier formatting plugin for Vite
 
 ---
 
-[(日本語はこちら)](./README_ja.md)
+[(Japanese language/日本語はこちら)](./README_ja.md)
 
 ## What is this?
 
@@ -23,7 +23,7 @@ For those who find basic auto-formatting and TypeScript type checking sufficient
 Key features:
 
 - Automatic Prettier formatting on build start
-- When using TypeScript, post-formatting TypeScript type checking. Additionally, JSDoc deprecation (`@deprecated`) can also be checked.
+- When using TypeScript, post-formatting TypeScript type checking. Additionally, JSDoc deprecation (`@deprecated`) and default imports can be checked.
 - Optional project banner insertion before building
 - All fine-tuning is specified in `.prettierrc`, `.prettierignore` and `tsconfig.json`, ensuring consistency
 - This is not doing anything unnecessary
@@ -56,7 +56,7 @@ If the default behavior is fine, you're all set!
 The build works as follows:
 
 1. On build start, the plugin formats all target files
-2. If formatting succeeds and TypeScript is enabled (by default), it runs type checking and detecting deprecation
+2. If formatting succeeds and TypeScript is enabled (by default), it runs type checking and optional deprecation/default import detection
 3. Errors are reported to the console with file paths and line numbers
 4. If `failOnError` is `true` (by default), the build stops on any errors
 
@@ -100,6 +100,11 @@ prettierMax({
   // Detect usage of deprecated symbols marked with `@deprecated` JSDoc tag
   // Default: true
   detectDeprecated: true,
+
+  // Detect default imports/exports to avoid ESM/CJS interop mismatches
+  // Options: 'none' | 'exceptType' | 'all'
+  // Default: 'none'
+  detectDefaultImport: 'none',
 
   // List of file extensions identifying source code for banner insertion
   // Default: [‘.ts’, ‘.tsx’, ‘.js’, ‘.jsx’]
@@ -216,6 +221,69 @@ In that case, please remove the unnecessary directive.
 Detecting deprecation causes TypeScript to perform detailed analysis.
 If detection performance becomes an issue, you can disable it by setting `detectDeprecated: false`.
 
+### Default import detection (Advanced option)
+
+prettier-max can detect default imports/exports to avoid runtime errors caused by ESM/CJS interop mismatches.
+This is aimed at cases where the build succeeds, but at runtime `require()` returns a module object and
+the generated code tries to access `.default`, resulting in `undefined`.
+
+`detectDefaultImport` accepts the following modes:
+
+- `none` (default): disable default import detection
+- `exceptType`: allow `import type` and type-only re-exports
+- `all`: report all default imports/exports, including type-only imports
+- Reports `PMAX003` errors when default imports/exports are found
+
+Example that triggers `PMAX003`:
+
+```typescript
+// cjs-lib (external package, cannot change)
+module.exports = function greet() {
+  return 'hi';
+};
+
+// app.ts
+import greet from 'cjs-lib'; // PMAX003
+greet(); // runtime may fail: greet is undefined
+```
+
+If you can change the module, prefer named exports:
+
+```typescript
+// foo.ts
+export class Foo {}
+
+// index.ts
+import { Foo } from './foo';
+export { Foo };
+```
+
+If the default export comes from an external package and cannot be changed,
+wrap it once and re-export as a named symbol (no default import):
+
+```typescript
+// cjs-lib-wrapper.ts
+import * as cjsLib from 'cjs-lib';
+
+const greet =
+  (cjsLib as { default?: typeof cjsLib }).default ?? cjsLib;
+
+export { greet };
+```
+
+```typescript
+// app.ts
+import { greet } from './cjs-lib-wrapper';
+greet();
+```
+
+Type-only default imports are allowed in `exceptType`:
+
+```typescript
+import type Foo from './foo';
+export type FooAlias = Foo;
+```
+
 ### Log output
 
 Log output adjustments follow Vite's option specifications:
@@ -242,7 +310,7 @@ DEBUG=vite:plugin:prettier-max vite build
 
 ## Limitations
 
-If you are not using TypeScript, you cannot perform JSDoc deprecation checks.
+If you are not using TypeScript, you cannot perform JSDoc deprecation/default import checks.
 
 ---
 
