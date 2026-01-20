@@ -218,7 +218,7 @@ olderSuperComponent();
 
 非推奨の検出は、TypeScriptに詳細解析を行わせます。もし、検出速度が問題になる場合は、 `detectDeprecated: false` でこれを無効化できます。
 
-### default import の検出 (高度なオプション)
+### default importの検出 (高度なオプション)
 
 prettier-maxは、ESM/CJSの相互運用差異によるランタイムエラーを避けるため、default import/export を検出できます。
 ビルドは通るのに、実行時に `require()` がモジュールオブジェクトを返し、
@@ -231,7 +231,7 @@ prettier-maxは、ESM/CJSの相互運用差異によるランタイムエラー�
 - `all`: type-only を含めて default import/export を検出
 - default import/export を検出すると `PMAX003` エラーが報告されます
 
-`PMAX003` が発生する例:
+#### `PMAX003` が発生する例
 
 ```typescript
 // cjs-lib (外部パッケージ、変更不可)
@@ -260,10 +260,14 @@ export { Foo };
 
 ```typescript
 // cjs-lib-wrapper.ts
+
+// モジュール名を別名でimportする（許可されます）
 import * as cjsLib from 'cjs-lib';
 
+// defaultを解決する
 const greet = (cjsLib as { default?: typeof cjsLib }).default ?? cjsLib;
 
+// シンボルを再エクスポート
 export { greet };
 ```
 
@@ -272,6 +276,22 @@ export { greet };
 import { greet } from './cjs-lib-wrapper';
 greet();
 ```
+
+あるいは、以下のようなヘルパー関数を使用することも出来ます:
+
+```typescript
+// default import解決のヘルパー関数
+const resolveDefaultExport = <T>(module: T | { default?: T }): T => {
+  return (module as { default?: T }).default ?? (module as T);
+};
+
+// モジュール名を別名でimportする（許可されます）
+import * as cjsLibModule from 'cjs-lib';
+const greet = resolveDefaultExport(cjsLibModule);
+greet();
+```
+
+#### 型定義のdefault importは許可する
 
 `exceptType` では type-only な default import であれば許可します:
 
@@ -306,7 +326,9 @@ DEBUG=vite:plugin:prettier-max vite build
 
 ## 制限
 
-TypeScriptを使用していない場合は、JSDocの非推奨/default importチェックを行うことは出来ません。
+- TypeScriptを使用していない場合は、JSDocの非推奨/default importチェックを行うことは出来ません。
+- default importの検出機能については、prettier-maxでは検出のみを行うため、改善機能はありません。
+  姉妹プロジェクトの [screw-up](https://github.com/kekyo/screw-up/) を使用すると、ほぼ制限なくこの問題を自動的に回避可能です。
 
 ---
 

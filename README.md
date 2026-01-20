@@ -234,7 +234,7 @@ the generated code tries to access `.default`, resulting in `undefined`.
 - `all`: report all default imports/exports, including type-only imports
 - Reports `PMAX003` errors when default imports/exports are found
 
-Example that triggers `PMAX003`:
+#### Example that triggers `PMAX003`
 
 ```typescript
 // cjs-lib (external package, cannot change)
@@ -263,10 +263,14 @@ wrap it once and re-export as a named symbol (no default import):
 
 ```typescript
 // cjs-lib-wrapper.ts
+
+// Importing a module under an alias (permitted)
 import * as cjsLib from 'cjs-lib';
 
+// Resolve it
 const greet = (cjsLib as { default?: typeof cjsLib }).default ?? cjsLib;
 
+// Re-export the symbol
 export { greet };
 ```
 
@@ -275,6 +279,22 @@ export { greet };
 import { greet } from './cjs-lib-wrapper';
 greet();
 ```
+
+Other hand, you can also use helper functions like the following:
+
+```typescript
+// Helper function for default import resolution
+const resolveDefaultExport = <T>(module: T | { default?: T }): T => {
+  return (module as { default?: T }).default ?? (module as T);
+};
+
+// Importing a module under an alias (permitted)
+import * as cjsLibModule from 'cjs-lib';
+const greet = resolveDefaultExport(cjsLibModule);
+greet();
+```
+
+#### Allow default imports for type definitions
 
 Type-only default imports are allowed in `exceptType`:
 
@@ -309,7 +329,9 @@ DEBUG=vite:plugin:prettier-max vite build
 
 ## Limitations
 
-If you are not using TypeScript, you cannot perform JSDoc deprecation/default import checks.
+- If you are not using TypeScript, you cannot perform JSDoc deprecation/default import checks.
+- Regarding the "default import detection" feature, prettier-max only performs detection and does not offer any improvement functionality.
+  Using the sister project [screw-up](https://github.com/kekyo/screw-up/) allows you to automatically avoid this issue with almost no restrictions.
 
 ---
 
