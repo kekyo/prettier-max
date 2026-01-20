@@ -9,7 +9,11 @@ import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 type TS = typeof import('typescript');
-import type { FormatResult, PrettierError } from './types.js';
+import type {
+  DefaultImportDetectionMode,
+  FormatResult,
+  PrettierError,
+} from './types.js';
 import type { Logger } from './logger.js';
 
 /**
@@ -281,6 +285,207 @@ const loadTypeScript = async (): Promise<TS | undefined> => {
   }
 };
 
+const createDefaultImportDetector = (
+  ts: typeof import('typescript'),
+  detectDefaultImport: DefaultImportDetectionMode
+): {
+  detectInNode: (node: import('typescript').Node) => void;
+  warnings: PrettierError[];
+} => {
+  const warnings: PrettierError[] = [];
+  const checkedLocations = new Set<string>();
+
+  if (detectDefaultImport === 'none') {
+    return { detectInNode: () => {}, warnings };
+  }
+
+  const allowTypeOnly = detectDefaultImport === 'all';
+
+  const addWarning = (
+    node: import('typescript').Node,
+    kind: 'import' | 'export' | 're-export',
+    detail?: string
+  ): void => {
+    const sourceFile = node.getSourceFile();
+    const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+      node.getStart()
+    );
+    const message = `PMAX003: Default ${kind} detected${
+      detail ? ` (${detail})` : ''
+    }`;
+    const locationKey = `${sourceFile.fileName}:${line + 1}:${
+      character + 1
+    }:${message}`;
+    if (checkedLocations.has(locationKey)) {
+      return;
+    }
+    checkedLocations.add(locationKey);
+    warnings.push({
+      file: sourceFile.fileName,
+      line: line + 1,
+      column: character + 1,
+      message,
+    });
+  };
+
+  const isDefaultSpecifierName = (
+    specifier:
+      | import('typescript').ImportSpecifier
+      | import('typescript').ExportSpecifier
+  ): boolean => {
+    const propertyName = specifier.propertyName?.text;
+    if (propertyName === 'default') {
+      return true;
+    }
+    return !specifier.propertyName && specifier.name.text === 'default';
+  };
+
+  const isTypeOnlyImport = (
+    isTypeOnlyImportClause: boolean,
+    specifier?: import('typescript').ImportSpecifier
+  ): boolean =>
+    !allowTypeOnly &&
+    (isTypeOnlyImportClause || (specifier?.isTypeOnly ?? false));
+
+  const isTypeOnlyExport = (
+    exportDecl: import('typescript').ExportDeclaration | undefined,
+    specifier?: import('typescript').ExportSpecifier
+  ): boolean =>
+    !allowTypeOnly &&
+    ((exportDecl?.isTypeOnly ?? false) || (specifier?.isTypeOnly ?? false));
+
+  const hasDefaultModifier = (node: import('typescript').Node): boolean => {
+    if (!ts.canHaveModifiers(node)) {
+      return false;
+    }
+    const modifiers = ts.getModifiers(node) ?? [];
+    return modifiers.some(
+      (modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword
+    );
+  };
+
+  const isTypeOnlyDeclaration = (node: import('typescript').Node): boolean =>
+    ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node);
+
+  const detectInNode = (node: import('typescript').Node): void => {
+    if (ts.isImportDeclaration(node)) {
+      const importClause = node.importClause;
+      if (!importClause) {
+        return;
+      }
+      const isTypeOnlyImportClause =
+        ts.isTypeOnlyImportDeclaration(importClause);
+      if (importClause.name && !isTypeOnlyImport(isTypeOnlyImportClause)) {
+        addWarning(importClause.name, 'import', importClause.name.text);
+      }
+
+      if (
+        importClause.namedBindings &&
+        ts.isNamedImports(importClause.namedBindings)
+      ) {
+        for (const specifier of importClause.namedBindings.elements) {
+          if (!isDefaultSpecifierName(specifier)) {
+            continue;
+          }
+          if (isTypeOnlyImport(isTypeOnlyImportClause, specifier)) {
+            continue;
+          }
+          const detail = specifier.propertyName
+            ? `default as ${specifier.name.text}`
+            : specifier.name.text;
+          addWarning(
+            specifier.propertyName ?? specifier.name,
+            'import',
+            detail
+          );
+        }
+      }
+      return;
+    }
+
+    if (ts.isExportDeclaration(node)) {
+      if (node.exportClause && ts.isNamedExports(node.exportClause)) {
+        for (const specifier of node.exportClause.elements) {
+          if (!isDefaultSpecifierName(specifier)) {
+            continue;
+          }
+          if (isTypeOnlyExport(node, specifier)) {
+            continue;
+          }
+          const detail = specifier.propertyName
+            ? `default as ${specifier.name.text}`
+            : specifier.name.text;
+          addWarning(
+            specifier.propertyName ?? specifier.name,
+            're-export',
+            detail
+          );
+        }
+      }
+      return;
+    }
+
+    if (ts.isExportAssignment(node)) {
+      if (!node.isExportEquals) {
+        addWarning(node, 'export');
+      }
+      return;
+    }
+
+    if (hasDefaultModifier(node)) {
+      if (!allowTypeOnly && isTypeOnlyDeclaration(node)) {
+        return;
+      }
+      if (
+        ts.isClassDeclaration(node) ||
+        ts.isFunctionDeclaration(node) ||
+        ts.isInterfaceDeclaration(node) ||
+        ts.isEnumDeclaration(node) ||
+        ts.isTypeAliasDeclaration(node) ||
+        ts.isModuleDeclaration(node)
+      ) {
+        const detail = 'name' in node && node.name ? node.name.text : undefined;
+        addWarning(node.name ?? node, 'export', detail);
+      }
+    }
+  };
+
+  return {
+    detectInNode,
+    warnings,
+  };
+};
+
+const checkDefaultImportUsage = (
+  ts: typeof import('typescript'),
+  program: import('typescript').Program,
+  detectDefaultImport: DefaultImportDetectionMode
+): PrettierError[] => {
+  if (detectDefaultImport === 'none') {
+    return [];
+  }
+
+  const detector = createDefaultImportDetector(ts, detectDefaultImport);
+
+  for (const sourceFile of program.getSourceFiles()) {
+    if (
+      sourceFile.fileName.includes('node_modules') ||
+      sourceFile.isDeclarationFile
+    ) {
+      continue;
+    }
+
+    const visit = (node: import('typescript').Node): void => {
+      detector.detectInNode(node);
+      ts.forEachChild(node, visit);
+    };
+
+    visit(sourceFile);
+  }
+
+  return detector.warnings;
+};
+
 /**
  * Check for deprecated symbol usage in TypeScript code
  */
@@ -288,9 +493,14 @@ const checkDeprecatedUsage = (
   ts: typeof import('typescript'),
   program: import('typescript').Program,
   checker: import('typescript').TypeChecker,
-  logger?: Logger
+  logger: Logger | undefined,
+  detectDefaultImport: DefaultImportDetectionMode
 ): PrettierError[] => {
   const deprecationWarnings: PrettierError[] = [];
+  const defaultImportDetector = createDefaultImportDetector(
+    ts,
+    detectDefaultImport
+  );
   const checkedLocations = new Set<string>(); // "filename:line:column" format
   const suppressedLines = new Map<string, Set<number>>(); // filename -> line numbers
   const usedSuppressions = new Set<string>(); // "filename:line" format
@@ -370,6 +580,8 @@ const checkDeprecatedUsage = (
 
     // Walk the AST to find deprecated usage
     const visit = (node: import('typescript').Node): void => {
+      defaultImportDetector.detectInNode(node);
+
       const handleSymbolUsage = (
         symbol: import('typescript').Symbol | undefined,
         locationNode: import('typescript').Node
@@ -837,7 +1049,7 @@ const checkDeprecatedUsage = (
     }
   }
 
-  return deprecationWarnings;
+  return deprecationWarnings.concat(defaultImportDetector.warnings);
 };
 
 /**
@@ -847,7 +1059,8 @@ export const runTypeScriptCheck = async (
   cwd: string,
   detectDeprecated: boolean = true,
   logger?: Logger,
-  configPath?: string
+  configPath?: string,
+  detectDefaultImport: DefaultImportDetectionMode = 'none'
 ): Promise<FormatResult> => {
   const startTime = Date.now();
   const errors: PrettierError[] = [];
@@ -995,7 +1208,8 @@ export const runTypeScriptCheck = async (
       }
     }
 
-    // Check for deprecated symbol usage if enabled
+    const shouldCheckDefaultImport = detectDefaultImport !== 'none';
+
     if (detectDeprecated) {
       // Get TypeChecker only when needed for deprecated detection
       const checker = program.getTypeChecker();
@@ -1003,11 +1217,19 @@ export const runTypeScriptCheck = async (
         ts,
         program,
         checker,
-        logger
+        logger,
+        detectDefaultImport
       );
 
       // Add deprecation warnings to errors
       errors.push(...deprecationWarnings);
+    } else if (shouldCheckDefaultImport) {
+      const defaultImportWarnings = checkDefaultImportUsage(
+        ts,
+        program,
+        detectDefaultImport
+      );
+      errors.push(...defaultImportWarnings);
     }
 
     return {
