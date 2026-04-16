@@ -504,21 +504,104 @@ const checkDeprecatedUsage = (
   const checkedLocations = new Set<string>(); // "filename:line:column" format
   const suppressedLines = new Map<string, Set<number>>(); // filename -> line numbers
   const usedSuppressions = new Set<string>(); // "filename:line" format
+  type DeprecationInfo = {
+    isDeprecated: boolean;
+    message: string | undefined;
+  };
 
-  // Helper function to get deprecation message from JSDoc tags
-  const getDeprecationMessage = (
-    symbol: import('typescript').Symbol
-  ): string | undefined => {
+  const getDeprecationInfoFromTags = (
+    jsdocTags: readonly import('typescript').JSDocTagInfo[] | undefined
+  ): DeprecationInfo => {
+    const deprecatedTag = jsdocTags?.find((tag) => tag.name === 'deprecated');
+    if (!deprecatedTag) {
+      return {
+        isDeprecated: false,
+        message: undefined,
+      };
+    }
+
+    const message = deprecatedTag.text
+      ?.map((part) => part.text)
+      .join('')
+      .trim();
+    return {
+      isDeprecated: true,
+      message: message ? message : undefined,
+    };
+  };
+
+  const getDeprecationInfoFromDeclaration = (
+    declaration: import('typescript').Declaration | undefined
+  ): DeprecationInfo => {
+    if (!declaration) {
+      return {
+        isDeprecated: false,
+        message: undefined,
+      };
+    }
+
     try {
-      const jsdocTags = symbol.getJsDocTags(checker);
-      const deprecatedTag = jsdocTags.find((tag) => tag.name === 'deprecated');
-      if (deprecatedTag && deprecatedTag.text) {
-        return deprecatedTag.text.map((part) => part.text).join('');
+      const modifierFlags = ts.getCombinedModifierFlags(declaration);
+      if (modifierFlags & ts.ModifierFlags.Deprecated) {
+        return {
+          isDeprecated: true,
+          message: undefined,
+        };
+      }
+    } catch {
+      // Ignore errors when reading declaration flags
+    }
+
+    return {
+      isDeprecated: false,
+      message: undefined,
+    };
+  };
+
+  const getDeprecationInfoFromSymbol = (
+    symbol: import('typescript').Symbol
+  ): DeprecationInfo => {
+    try {
+      const info = getDeprecationInfoFromTags(symbol.getJsDocTags(checker));
+      if (info.isDeprecated) {
+        return info;
       }
     } catch {
       // Ignore errors when getting JSDoc tags
     }
-    return undefined;
+
+    for (const declaration of symbol.getDeclarations() ?? []) {
+      const info = getDeprecationInfoFromDeclaration(declaration);
+      if (info.isDeprecated) {
+        return info;
+      }
+    }
+
+    return getDeprecationInfoFromDeclaration(
+      symbol.valueDeclaration as import('typescript').Declaration | undefined
+    );
+  };
+
+  const getDeprecationInfoFromSignature = (
+    signature: import('typescript').Signature | undefined
+  ): DeprecationInfo => {
+    if (!signature) {
+      return {
+        isDeprecated: false,
+        message: undefined,
+      };
+    }
+
+    try {
+      const info = getDeprecationInfoFromTags(signature.getJsDocTags());
+      if (info.isDeprecated) {
+        return info;
+      }
+    } catch {
+      // Ignore errors when getting signature JSDoc tags
+    }
+
+    return getDeprecationInfoFromDeclaration(signature.getDeclaration());
   };
 
   // Visit each source file
@@ -584,7 +667,11 @@ const checkDeprecatedUsage = (
 
       const handleSymbolUsage = (
         symbol: import('typescript').Symbol | undefined,
-        locationNode: import('typescript').Node
+        locationNode: import('typescript').Node,
+        options?: {
+          resolvedSignature?: import('typescript').Signature;
+          allowSymbolFallback?: boolean;
+        }
       ): void => {
         if (!symbol) {
           return;
@@ -645,21 +732,22 @@ const checkDeprecatedUsage = (
           }
         };
 
-        const deprecationMessage = getDeprecationMessage(resolvedSymbol);
-        const hasJsDocMessage = deprecationMessage !== undefined;
-        if (hasJsDocMessage) {
-          maybeAddWarning(deprecationMessage);
+        let deprecationInfo = getDeprecationInfoFromSymbol(resolvedSymbol);
+
+        if (options?.resolvedSignature) {
+          const signatureDeprecationInfo = getDeprecationInfoFromSignature(
+            options.resolvedSignature
+          );
+          if (
+            signatureDeprecationInfo.isDeprecated ||
+            !options.allowSymbolFallback
+          ) {
+            deprecationInfo = signatureDeprecationInfo;
+          }
         }
 
-        if (resolvedSymbol.valueDeclaration) {
-          const modifierFlags = ts.getCombinedModifierFlags(
-            resolvedSymbol.valueDeclaration as import('typescript').Declaration
-          );
-          if (modifierFlags & ts.ModifierFlags.Deprecated) {
-            if (!hasJsDocMessage) {
-              maybeAddWarning();
-            }
-          }
+        if (deprecationInfo.isDeprecated) {
+          maybeAddWarning(deprecationInfo.message);
         }
       };
 
@@ -833,6 +921,18 @@ const checkDeprecatedUsage = (
         return false;
       };
 
+      const isDeprecatedDeclaration = (
+        declaration: import('typescript').Declaration | undefined
+      ): boolean => {
+        if (!declaration) {
+          return false;
+        }
+        if (hasDeprecatedLeadingJsDoc(declaration)) {
+          return true;
+        }
+        return getDeprecationInfoFromDeclaration(declaration).isDeprecated;
+      };
+
       // Check if this is a function-like node that is deprecated
       // If so, skip checking its body
       if (
@@ -846,14 +946,24 @@ const checkDeprecatedUsage = (
 
         // Get symbol based on node type
         if (ts.isFunctionDeclaration(node) && node.name) {
-          funcSymbol = checker.getSymbolAtLocation(node.name);
+          if (isDeprecatedDeclaration(node)) {
+            return; // Early return - don't check descendants
+          }
         } else if (ts.isMethodDeclaration(node) && node.name) {
-          funcSymbol = checker.getSymbolAtLocation(node.name);
+          if (isDeprecatedDeclaration(node)) {
+            return; // Early return - don't check descendants
+          }
         } else if (ts.isConstructorDeclaration(node)) {
+          if (isDeprecatedDeclaration(node)) {
+            return; // Early return - don't check descendants
+          }
           // For constructors, check the parent class
           const parent = node.parent;
-          if (ts.isClassDeclaration(parent) && parent.name) {
-            funcSymbol = checker.getSymbolAtLocation(parent.name);
+          if (
+            ts.isClassDeclaration(parent) &&
+            isDeprecatedDeclaration(parent)
+          ) {
+            return; // Early return - don't check descendants
           }
         } else if (
           (ts.isFunctionExpression(node) || ts.isArrowFunction(node)) &&
@@ -866,7 +976,10 @@ const checkDeprecatedUsage = (
         }
 
         // If this function is deprecated, skip checking its body
-        if (funcSymbol && getDeprecationMessage(funcSymbol) !== undefined) {
+        if (
+          funcSymbol &&
+          getDeprecationInfoFromSymbol(funcSymbol).isDeprecated
+        ) {
           return; // Early return - don't check descendants
         }
       }
@@ -884,12 +997,7 @@ const checkDeprecatedUsage = (
       // If this is a type alias declaration and it's marked as @deprecated,
       // skip checking inside its type definition (e.g., export type Foo = OldType)
       if (ts.isTypeAliasDeclaration(node) && node.name) {
-        const typeSymbol = checker.getSymbolAtLocation(node.name);
-        if (typeSymbol && getDeprecationMessage(typeSymbol) !== undefined) {
-          return; // Early return - don't check descendants
-        }
-        // Also honor leading JSDoc on the declaration (as a fallback)
-        if (hasDeprecatedLeadingJsDoc(node)) {
+        if (isDeprecatedDeclaration(node)) {
           return; // Early return - don't check descendants
         }
       }
@@ -912,6 +1020,8 @@ const checkDeprecatedUsage = (
           if (
             parent &&
             ((ts.isClassDeclaration(parent) && parent.name === node) ||
+              ((ts.isCallExpression(parent) || ts.isNewExpression(parent)) &&
+                parent.expression === node) ||
               (ts.isInterfaceDeclaration(parent) && parent.name === node) ||
               (ts.isFunctionDeclaration(parent) && parent.name === node) ||
               (ts.isTypeAliasDeclaration(parent) && parent.name === node) ||
@@ -956,16 +1066,36 @@ const checkDeprecatedUsage = (
           symbolToCheck = checker.getSymbolAtLocation(node);
         }
       } else if (ts.isElementAccessExpression(node)) {
-        // Element access (obj['prop'])
-        symbolToCheck = checker.getSymbolAtLocation(node);
+        if (
+          (ts.isCallExpression(node.parent) ||
+            ts.isNewExpression(node.parent)) &&
+          node.parent.expression === node
+        ) {
+          symbolToCheck = undefined;
+        } else {
+          // Element access (obj['prop'])
+          symbolToCheck = checker.getSymbolAtLocation(node);
+        }
       } else if (ts.isCallExpression(node)) {
         // Function call - check the function being called
         symbolToCheck = checker.getSymbolAtLocation(node.expression);
         nodeToReport = node.expression;
+        handleSymbolUsage(symbolToCheck, nodeToReport, {
+          resolvedSignature: checker.getResolvedSignature(node),
+          allowSymbolFallback: false,
+        });
+        ts.forEachChild(node, visit);
+        return;
       } else if (ts.isNewExpression(node)) {
         // Constructor call - check the class being instantiated
         symbolToCheck = checker.getSymbolAtLocation(node.expression);
         nodeToReport = node.expression;
+        handleSymbolUsage(symbolToCheck, nodeToReport, {
+          resolvedSignature: checker.getResolvedSignature(node),
+          allowSymbolFallback: true,
+        });
+        ts.forEachChild(node, visit);
+        return;
       } else if (ts.isImportSpecifier(node)) {
         // Import specifier - check the imported symbol
         const importedSymbol = checker.getSymbolAtLocation(node.name);
