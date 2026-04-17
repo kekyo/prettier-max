@@ -86,7 +86,7 @@ describe('prettier-max plugin', () => {
     });
 
     it('should not modify already formatted files', async () => {
-      // Create a properly formatted file (prettier defaults: single quotes, semicolon)
+      // Create a properly formatted file using the repository's Prettier config
       const formattedContent = `const foo = 'bar';
 const baz = 'qux';
 `;

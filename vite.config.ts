@@ -6,14 +6,14 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
-import dts from 'vite-plugin-dts';
+import dts from 'unplugin-dts/vite';
 import screwUp from 'screw-up';
 import prettierMax from './src/index';
 
 export default defineConfig({
   plugins: [
     dts({
-      rollupTypes: true,
+      insertTypesEntry: true,
     }),
     screwUp({
       outputMetadataFile: true,
@@ -34,7 +34,7 @@ export default defineConfig({
         `${entryName}.${format === 'es' ? 'mjs' : 'cjs'}`,
       formats: ['es', 'cjs'],
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [
         'vite',
         'path',

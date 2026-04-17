@@ -52,7 +52,7 @@ describe('Deprecated detection suppression directive', () => {
  * @deprecated Use newFunction instead
  */
 export function oldFunction(): void {
-  console.log('Old implementation');
+  return;
 }
 
 export function normalFunction(): void {
@@ -138,7 +138,7 @@ function test() {
       testFile,
       `
 export function newFunction(): void {
-  console.log('New implementation');
+  return;
 }
 
 export function normalFunction(): void {
@@ -315,10 +315,10 @@ export function NormalRenderer() {
 
 export function testFunction(): void {
   // Check for @prettier-max-ignore-deprecated directive
-  console.log('This comment mentions the directive but is not one');
+  void 'This comment mentions the directive but is not one';
   
   // Another comment about @prettier-max-ignore-deprecated usage
-  console.log('Should not trigger PMAX002');
+  void 'Should not trigger PMAX002';
 }
 `
     );
