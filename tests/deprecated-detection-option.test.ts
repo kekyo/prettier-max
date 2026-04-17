@@ -52,7 +52,7 @@ describe('Deprecated detection option', () => {
  * @deprecated Use newFunction instead
  */
 export function oldFunction(): void {
-  console.log('Old implementation');
+  return;
 }
 
 export function normalFunction(): void {
@@ -95,7 +95,7 @@ export const useOldArrow = () => oldArrowFunc();
  * @deprecated Use newFunction instead
  */
 export function oldFunction(): void {
-  console.log('Old implementation');
+  return;
 }
 
 export function normalFunction(): void {
