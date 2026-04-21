@@ -508,6 +508,10 @@ const checkDeprecatedUsage = (
     isDeprecated: boolean;
     message: string | undefined;
   };
+  type DeprecatedTypeUsage = {
+    displayName: string;
+    message: string | undefined;
+  };
 
   const getDeprecationInfoFromTags = (
     jsdocTags: readonly import('typescript').JSDocTagInfo[] | undefined
@@ -604,6 +608,115 @@ const checkDeprecatedUsage = (
     return getDeprecationInfoFromDeclaration(signature.getDeclaration());
   };
 
+  const getDeprecatedTypeUsageFromSymbol = (
+    symbol: import('typescript').Symbol | undefined
+  ): DeprecatedTypeUsage | undefined => {
+    if (!symbol) {
+      return undefined;
+    }
+
+    const info = getDeprecationInfoFromSymbol(symbol);
+    if (!info.isDeprecated) {
+      return undefined;
+    }
+
+    return {
+      displayName: symbol.getName(),
+      message: info.message,
+    };
+  };
+
+  const getDirectDeprecatedTypeUsage = (
+    type: import('typescript').Type
+  ): DeprecatedTypeUsage | undefined => {
+    return (
+      getDeprecatedTypeUsageFromSymbol(type.aliasSymbol) ??
+      getDeprecatedTypeUsageFromSymbol(type.symbol)
+    );
+  };
+
+  const getRequiredDeprecatedTypeUsage = (
+    type: import('typescript').Type,
+    visited: Set<import('typescript').Type> = new Set()
+  ): DeprecatedTypeUsage | undefined => {
+    if (visited.has(type)) {
+      return undefined;
+    }
+    visited.add(type);
+
+    const directUsage = getDirectDeprecatedTypeUsage(type);
+    if (directUsage) {
+      return directUsage;
+    }
+
+    if (type.isUnion()) {
+      let firstUsage: DeprecatedTypeUsage | undefined;
+      for (const constituent of type.types) {
+        const usage = getRequiredDeprecatedTypeUsage(
+          constituent,
+          new Set(visited)
+        );
+        if (!usage) {
+          return undefined;
+        }
+        firstUsage ??= usage;
+      }
+      return firstUsage;
+    }
+
+    if (type.isIntersection()) {
+      for (const constituent of type.types) {
+        const usage = getRequiredDeprecatedTypeUsage(
+          constituent,
+          new Set(visited)
+        );
+        if (usage) {
+          return usage;
+        }
+      }
+    }
+
+    return undefined;
+  };
+
+  const getDeprecatedOnlyUnionSelection = (
+    contextualType: import('typescript').Type | undefined,
+    sourceType: import('typescript').Type
+  ): DeprecatedTypeUsage | undefined => {
+    if (!contextualType?.isUnion()) {
+      return undefined;
+    }
+
+    let deprecatedUsage: DeprecatedTypeUsage | undefined;
+    let hasNonDeprecatedBranch = false;
+
+    for (const branch of contextualType.types) {
+      let isAssignable = false;
+      try {
+        isAssignable = checker.isTypeAssignableTo(sourceType, branch);
+      } catch {
+        isAssignable = false;
+      }
+
+      if (!isAssignable) {
+        continue;
+      }
+
+      const usage = getRequiredDeprecatedTypeUsage(branch);
+      if (usage) {
+        deprecatedUsage ??= usage;
+      } else {
+        hasNonDeprecatedBranch = true;
+      }
+    }
+
+    if (!deprecatedUsage || hasNonDeprecatedBranch) {
+      return undefined;
+    }
+
+    return deprecatedUsage;
+  };
+
   // Visit each source file
   for (const sourceFile of program.getSourceFiles()) {
     // Skip node_modules and declaration files
@@ -661,6 +774,51 @@ const checkDeprecatedUsage = (
       }
     );
 
+    const addDeprecationWarning = (
+      locationNode: import('typescript').Node,
+      displayName: string,
+      messageSuffix?: string
+    ): void => {
+      const sourceFile = locationNode.getSourceFile();
+      const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+        locationNode.getStart()
+      );
+      const actualLine = line + 1;
+      const isSuppressed =
+        suppressedLines.get(sourceFile.fileName)?.has(actualLine) || false;
+
+      if (isSuppressed) {
+        usedSuppressions.add(`${sourceFile.fileName}:${actualLine}`);
+        if (logger) {
+          logger.info(
+            `Suppressed deprecated warning for '${displayName}' at ${sourceFile.fileName}:${actualLine}`
+          );
+        }
+        return;
+      }
+
+      const message = `PMAX001: '${displayName}' is deprecated${
+        messageSuffix ? `: ${messageSuffix}` : ''
+      }`;
+
+      // Avoid duplicate warnings at the same location with identical message
+      const alreadyAdded = deprecationWarnings.some(
+        (warning) =>
+          warning.file === sourceFile.fileName &&
+          warning.line === actualLine &&
+          warning.message === message
+      );
+
+      if (!alreadyAdded) {
+        deprecationWarnings.push({
+          file: sourceFile.fileName,
+          line: actualLine,
+          column: character + 1,
+          message,
+        });
+      }
+    };
+
     // Walk the AST to find deprecated usage
     const visit = (node: import('typescript').Node): void => {
       defaultImportDetector.detectInNode(node);
@@ -685,7 +843,7 @@ const checkDeprecatedUsage = (
             : resolvedSymbol.getName();
 
         const sourceFile = locationNode.getSourceFile();
-        const { line, character } = sourceFile.getLineAndCharacterOfPosition(
+        const { line } = sourceFile.getLineAndCharacterOfPosition(
           locationNode.getStart()
         );
         const locationKey = `${sourceFile.fileName}:${line + 1}:${displayName}`;
@@ -694,43 +852,6 @@ const checkDeprecatedUsage = (
           return;
         }
         checkedLocations.add(locationKey);
-
-        const maybeAddWarning = (messageSuffix?: string): void => {
-          const actualLine = line + 1;
-          const isSuppressed =
-            suppressedLines.get(sourceFile.fileName)?.has(actualLine) || false;
-
-          if (isSuppressed) {
-            usedSuppressions.add(`${sourceFile.fileName}:${actualLine}`);
-            if (logger) {
-              logger.info(
-                `Suppressed deprecated warning for '${displayName}' at ${sourceFile.fileName}:${actualLine}`
-              );
-            }
-            return;
-          }
-
-          const message = `PMAX001: '${displayName}' is deprecated${
-            messageSuffix ? `: ${messageSuffix}` : ''
-          }`;
-
-          // Avoid duplicate warnings at the same location with identical message
-          const alreadyAdded = deprecationWarnings.some(
-            (warning) =>
-              warning.file === sourceFile.fileName &&
-              warning.line === actualLine &&
-              warning.message === message
-          );
-
-          if (!alreadyAdded) {
-            deprecationWarnings.push({
-              file: sourceFile.fileName,
-              line: actualLine,
-              column: character + 1,
-              message,
-            });
-          }
-        };
 
         let deprecationInfo = getDeprecationInfoFromSymbol(resolvedSymbol);
 
@@ -747,7 +868,11 @@ const checkDeprecatedUsage = (
         }
 
         if (deprecationInfo.isDeprecated) {
-          maybeAddWarning(deprecationInfo.message);
+          addDeprecationWarning(
+            locationNode,
+            displayName,
+            deprecationInfo.message
+          );
         }
       };
 
@@ -867,6 +992,59 @@ const checkDeprecatedUsage = (
         }
 
         return directSymbol;
+      };
+
+      const isTypeReferenceAllowedByOptionalUnion = (
+        n: import('typescript').TypeReferenceNode
+      ): boolean => {
+        let current: import('typescript').Node | undefined = n.parent;
+        while (current) {
+          if (ts.isUnionTypeNode(current)) {
+            const unionType = checker.getTypeAtLocation(current);
+            if (!getRequiredDeprecatedTypeUsage(unionType)) {
+              return true;
+            }
+          }
+          current = current.parent;
+        }
+        return false;
+      };
+
+      const checkDeprecatedUnionSelection = (
+        expression: import('typescript').Expression
+      ): void => {
+        let contextualType: import('typescript').Type | undefined;
+        let sourceType: import('typescript').Type;
+        try {
+          contextualType = checker.getContextualType(expression);
+          sourceType = checker.getTypeAtLocation(expression);
+        } catch {
+          return;
+        }
+
+        const usage = getDeprecatedOnlyUnionSelection(
+          contextualType,
+          sourceType
+        );
+        if (!usage) {
+          return;
+        }
+
+        addDeprecationWarning(expression, usage.displayName, usage.message);
+      };
+
+      const isIdentifierInTypeReferenceName = (
+        identifier: import('typescript').Identifier
+      ): boolean => {
+        let current: import('typescript').Node = identifier;
+        while (current.parent && ts.isQualifiedName(current.parent)) {
+          current = current.parent;
+        }
+        return (
+          current.parent != null &&
+          ts.isTypeReferenceNode(current.parent) &&
+          current.parent.typeName === current
+        );
       };
 
       // Helper: detect if this node has a JSDoc @deprecated tag in leading comments
@@ -1002,12 +1180,17 @@ const checkDeprecatedUsage = (
         }
       }
 
+      if (ts.isExpression(node)) {
+        checkDeprecatedUnionSelection(node);
+      }
+
       let symbolToCheck: import('typescript').Symbol | undefined;
       let nodeToReport = node;
 
       // Determine which symbol to check based on node type
       if (ts.isIdentifier(node)) {
         if (
+          isIdentifierInTypeReferenceName(node) ||
           (ts.isJsxOpeningLikeElement(node.parent) &&
             node.parent.tagName === node) ||
           (ts.isJsxAttribute(node.parent) && node.parent.name === node)
@@ -1127,8 +1310,16 @@ const checkDeprecatedUsage = (
         }
       } else if (ts.isTypeReferenceNode(node)) {
         // Type reference - check the referenced type
-        symbolToCheck = checker.getSymbolAtLocation(node.typeName);
-        nodeToReport = node.typeName;
+        const referencedSymbol = checker.getSymbolAtLocation(node.typeName);
+        const isDeprecatedReference =
+          getDeprecatedTypeUsageFromSymbol(referencedSymbol) != null;
+        if (
+          !isDeprecatedReference ||
+          !isTypeReferenceAllowedByOptionalUnion(node)
+        ) {
+          symbolToCheck = referencedSymbol;
+          nodeToReport = node.typeName;
+        }
       }
 
       if (symbolToCheck) {

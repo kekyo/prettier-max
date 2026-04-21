@@ -205,6 +205,9 @@ olderSuperComponent();
 
 - Reports `PMAX001` errors when deprecated symbols are used
 - Deprecated functions calling other deprecated symbols won't generate warnings
+- Deprecated types that appear only as optional union branches are not reported
+  until an expression is assignable only to that deprecated branch.
+  Deprecated types required by intersections are still reported.
 
 You can temporarily suppress this warning by inserting the `@prettier-max-ignore-deprecated` directive in your code:
 

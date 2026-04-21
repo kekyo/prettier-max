@@ -60,6 +60,115 @@ describe('Deprecated detection within type alias declarations', () => {
     expect(first?.message).toContain('OldType');
   });
 
+  it('does not warn when union type alias includes deprecated compatibility branch', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-type-alias',
+      'union-compatibility'
+    );
+    await fs.mkdir(testDir, { recursive: true });
+
+    await fs.writeFile(
+      join(testDir, 'index.ts'),
+      `/**
+ * @deprecated Use ActiveSender instead.
+ */
+export type LegacySender = (value: string) => string;
+
+export interface ActiveSender {
+  readonly send: (value: string) => string;
+}
+
+export interface Tagged {
+  readonly tag: string;
+}
+
+export type Sender = LegacySender | ActiveSender;
+export type ComplexSender = LegacySender | (ActiveSender & Tagged);
+export type FallbackSender = (LegacySender & Tagged) | ActiveSender;
+`
+    );
+
+    await createTsConfigFile(testDir);
+
+    const result = await runTypeScriptCheck(testDir, true);
+    expect(
+      result.errors.filter((e) => e.message.includes('PMAX001')).length
+    ).toBe(0);
+    expect(result.success).toBe(true);
+  });
+
+  it('warns when intersection type alias requires deprecated type', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-type-alias',
+      'intersection-required'
+    );
+    await fs.mkdir(testDir, { recursive: true });
+
+    await fs.writeFile(
+      join(testDir, 'index.ts'),
+      `/**
+ * @deprecated Use ActiveSender instead.
+ */
+export interface LegacySender {
+  readonly legacy: string;
+}
+
+export interface ActiveSender {
+  readonly active: string;
+}
+
+export type Sender = LegacySender & ActiveSender;
+`
+    );
+
+    await createTsConfigFile(testDir);
+
+    const result = await runTypeScriptCheck(testDir, true);
+    const pmax001 = result.errors.filter((e) => e.message.includes('PMAX001'));
+    expect(pmax001.length).toBe(1);
+    expect(pmax001[0]?.message).toContain('LegacySender');
+  });
+
+  it('warns when expression selects only deprecated union branch', async () => {
+    const testDir = await createTestDirectory(
+      'deprecated-type-alias',
+      'union-selection'
+    );
+    await fs.mkdir(testDir, { recursive: true });
+
+    await fs.writeFile(
+      join(testDir, 'index.ts'),
+      `/**
+ * @deprecated Use ActiveSender instead.
+ */
+export type LegacySender = (value: string) => string;
+
+export interface ActiveSender {
+  readonly send: (value: string) => string;
+}
+
+export type Sender = LegacySender | ActiveSender;
+
+const legacySender: Sender = (value) => value;
+const activeSender: Sender = { send: (value) => value };
+
+declare const useSender: (sender: Sender) => void;
+
+useSender((value) => value);
+useSender({ send: (value) => value });
+
+export { activeSender, legacySender };
+`
+    );
+
+    await createTsConfigFile(testDir);
+
+    const result = await runTypeScriptCheck(testDir, true);
+    const pmax001 = result.errors.filter((e) => e.message.includes('PMAX001'));
+    expect(pmax001.length).toBe(2);
+    expect(pmax001.every((e) => e.message.includes('LegacySender'))).toBe(true);
+  });
+
   it('does not warn inside deprecated export type alias', async () => {
     const testDir = await createTestDirectory(
       'deprecated-type-alias',
