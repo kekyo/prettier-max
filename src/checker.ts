@@ -1047,6 +1047,51 @@ const checkDeprecatedUsage = (
         );
       };
 
+      const getEntityNameText = (
+        entityName: import('typescript').EntityName
+      ): string =>
+        ts.isIdentifier(entityName)
+          ? entityName.text
+          : getEntityNameText(entityName.right);
+
+      const isTrustedUtilityTypeReference = (
+        n: import('typescript').TypeReferenceNode
+      ): boolean => {
+        const name = getEntityNameText(n.typeName);
+        return name === 'Exclude' || name === 'Extract';
+      };
+
+      const isTrustedComputedTypeNode = (
+        n: import('typescript').TypeNode
+      ): boolean => {
+        if (ts.isParenthesizedTypeNode(n)) {
+          return isTrustedComputedTypeNode(n.type);
+        }
+
+        if (
+          ts.isUnionTypeNode(n) ||
+          ts.isIntersectionTypeNode(n) ||
+          ts.isConditionalTypeNode(n) ||
+          ts.isIndexedAccessTypeNode(n)
+        ) {
+          return true;
+        }
+
+        if (ts.isTypeReferenceNode(n)) {
+          if (isTrustedUtilityTypeReference(n)) {
+            return true;
+          }
+          try {
+            const type = checker.getTypeAtLocation(n);
+            return type.isUnionOrIntersection();
+          } catch {
+            return false;
+          }
+        }
+
+        return false;
+      };
+
       // Helper: detect if this node has a JSDoc @deprecated tag in leading comments
       const hasDeprecatedLeadingJsDoc = (
         n: import('typescript').Node
@@ -1177,6 +1222,16 @@ const checkDeprecatedUsage = (
       if (ts.isTypeAliasDeclaration(node) && node.name) {
         if (isDeprecatedDeclaration(node)) {
           return; // Early return - don't check descendants
+        }
+        const usage = getRequiredDeprecatedTypeUsage(
+          checker.getTypeAtLocation(node.type)
+        );
+        if (usage) {
+          addDeprecationWarning(node.type, usage.displayName, usage.message);
+          return;
+        }
+        if (isTrustedComputedTypeNode(node.type)) {
+          return;
         }
       }
 

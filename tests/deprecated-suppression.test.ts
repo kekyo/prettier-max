@@ -460,7 +460,7 @@ export { instance1, instance2 };
 
     const result = await runTypeScriptCheck(testDir, true);
 
-    // Should have one PMAX001 error for unsuppressed import
+    // Should report the unsuppressed import and later explicit type usages.
     const pmax001Errors = result.errors.filter((e) =>
       e.message.includes('PMAX001')
     );
@@ -527,7 +527,7 @@ export type { MyData, AnotherData };
 
     const result = await runTypeScriptCheck(testDir, true);
 
-    // Should have one PMAX001 error for unsuppressed import
+    // Should report the unsuppressed import and later explicit type usages.
     const pmax001Errors = result.errors.filter((e) =>
       e.message.includes('PMAX001')
     );
@@ -535,11 +535,14 @@ export type { MyData, AnotherData };
       e.message.includes('PMAX002')
     );
 
-    expect(pmax001Errors).toHaveLength(1);
-    const firstPmax001 = pmax001Errors[0];
-    expect(firstPmax001).toBeDefined();
-    expect(firstPmax001?.message).toContain('OldInterface');
-    expect(firstPmax001?.line).toBe(5); // Line with unsuppressed import
+    expect(pmax001Errors).toHaveLength(3);
+    expect(
+      pmax001Errors.some(
+        (error) => error.message.includes('OldInterface') && error.line === 5
+      )
+    ).toBe(true);
+    expect(pmax001Errors.some((error) => error.line === 10)).toBe(true);
+    expect(pmax001Errors.some((error) => error.line === 11)).toBe(true);
 
     // Should have one PMAX002 for unnecessary suppression
     expect(pmax002Errors).toHaveLength(1);

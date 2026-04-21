@@ -205,6 +205,7 @@ olderSuperComponent();
 - 非推奨関数が他の非推奨シンボルを呼び出しても警告されません
 - 非推奨型が任意のunion分岐として現れるだけの場合は報告せず、式がその非推奨分岐にのみ代入可能な場合に報告します。
   intersectionで非推奨型が必須になる場合は引き続き報告します
+- generic alias、conditional type、indexed access type、`Extract`、`Exclude` を使用する型エイリアスは、可能な範囲で解決後の型を元に検査します
 
 `@prettier-max-ignore-deprecated` ディレクティブをコード上に挿入することで、この警告を一時的に抑制できます:
 
